@@ -37,11 +37,11 @@ class BrailleServer {
         clientAddress === '::1' || 
         clientAddress === '::ffff:127.0.0.1';
       
-      if (isInternalConnection) {
-        console.log(`🚫 내부 연결 차단: ${clientAddress} (${userAgent})`);
-        ws.close(1000, 'Internal connections are not allowed');
-        return;
-      }
+      // if (isInternalConnection) {
+      //   console.log(`🚫 내부 연결 차단: ${clientAddress} (${userAgent})`);
+      //   ws.close(1000, 'Internal connections are not allowed');
+      //   return;
+      // }
       
       console.log(`✅ 네트워크 연결 허용: ${clientAddress} (${userAgent})`);
       
