@@ -1,45 +1,4 @@
-# Android Studio / IntelliJ IDEA
-.idea/
-*.iml
-*.iws
-*.ipr
-.gradle/
-local.properties
-
-# Android build files
-application/app/build/
-application/build/
-application/.gradle/
-application/gradle/wrapper/gradle-wrapper.jar
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-.pytest_cache/
-
-# Node.js (for web_visualizer)
-web_visualizer/node_modules/
-web_visualizer/build/
-web_visualizer/dist/
-web_visualizer/.env
-web_visualizer/.env.local
-web_visualizer/.env.development.local
-web_visualizer/.env.test.local
-web_visualizer/.env.production.local
-
-# Logs
-*.log
-logs/
-
-# OS generated files
+# macOS / Windows metadata
 .DS_Store
 .DS_Store?
 ._*
@@ -48,28 +7,58 @@ logs/
 ehthumbs.db
 Thumbs.db
 
-# IDE files
+# IDE and tooling
+.idea/
 .vscode/
+*.iml
+*.iws
+*.ipr
 *.swp
 *.swo
 *~
+**/.cache/clangd/
 
-# Temporary files
+# Build outputs and gradle
+**/build/
+.gradle/
+application/.gradle/
+application/gradle/wrapper/gradle-wrapper.jar
+local.properties
+
+# Node.js (web_visualizer)
+web_visualizer/node_modules/
+web_visualizer/dist/
+web_visualizer/.env
+web_visualizer/.env.*
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+env/
+env.bak/
+venv/
+venv.bak/
+ENV/
+wearable/venv/
+wearable/env/
+
+# Logs and temp files
+*.log
+logs/
 tmp/
 temp/
 *.tmp
 *.temp
 
-# Arduino IDE
+# Arduino / ESP32
 *.ino.bak
-
-# ESP32 specific
 .pio/
 .vscode/.browse.c_cpp.db*
 .vscode/c_cpp_properties.json
-.vscode/launch.json
 .vscode/ipch
+.vscode/launch.json
 
-# Python virtual environments
-wearable/venv/
-wearable/env/
+# KiCad backups
+**/vibration_module-backups/
