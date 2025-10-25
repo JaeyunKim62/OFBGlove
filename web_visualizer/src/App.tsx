@@ -41,6 +41,18 @@ function App() {
   const [separatorTimings, setSeparatorTimings] = useState<number[]>([]); // separator 간격 저장
   const [playbackMode, setPlaybackMode] = useState<'fixed' | 'original' | 'adaptive'>('fixed'); // 재생 모드
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0); // 재생 속도 배율
+  const [replayCount, setReplayCount] = useState(0); // 재생 횟수 추적
+  const [navigationIndex, setNavigationIndex] = useState(0); // 네비게이션 인덱스
+  const [wordSequence, setWordSequence] = useState<BraillePattern[][]>([]); // 단어별 점자 시퀀스
+  const [currentWordIndex, setCurrentWordIndex] = useState(0); // 현재 단어 인덱스
+  const [isPlayingWord, setIsPlayingWord] = useState(false); // 단어 재생 상태
+  const [autoWordRepeat, setAutoWordRepeat] = useState(true); // 자동 단어 반복 활성화
+  const [separatorOptimization, setSeparatorOptimization] = useState({
+    wordSeparatorDelay: 1000, // 단어 구분자 지연 시간
+    sentenceSeparatorDelay: 2000, // 문장 구분자 지연 시간
+    brailleSeparatorDelay: 500, // 점자 구분자 지연 시간
+    enableOptimization: true // 최적화 활성화
+  });
   
   const wsServiceRef = useRef<WebSocketService | null>(null);
   const dataCollectorRef = useRef<DataCollector | null>(null);
@@ -224,6 +236,275 @@ function App() {
     }
   };
 
+  // 다시듣기 기능 (전체 시퀀스)
+  const replayBrailleSequence = () => {
+    if (brailleSequence.length === 0) return;
+    
+    setReplayCount(prev => prev + 1);
+    addLog('info', `다시듣기 시작 (${replayCount + 1}번째)`, { replayCount: replayCount + 1 });
+    
+    // 기존 재생 중지
+    if (isPlayingSequence) {
+      stopBrailleSequence();
+    }
+    
+    // 잠시 후 재생 시작
+    setTimeout(() => {
+      playBrailleSequence();
+    }, 200);
+  };
+
+  // 현재 문장 다시듣기 기능
+  const replayCurrentSentence = () => {
+    if (currentSentenceSequence.length === 0) return;
+    
+    setReplayCount(prev => prev + 1);
+    addLog('info', `현재 문장 다시듣기 시작 (${replayCount + 1}번째)`, { replayCount: replayCount + 1 });
+    
+    // 기존 재생 중지
+    if (isPlayingCurrentSentence) {
+      stopCurrentSentenceSequence();
+    }
+    
+    // 잠시 후 재생 시작
+    setTimeout(() => {
+      playCurrentSentenceSequence();
+    }, 200);
+  };
+
+  // 네비게이션 함수들
+  const navigateToPrevious = () => {
+    if (brailleSequence.length === 0) return;
+    
+    const newIndex = Math.max(0, navigationIndex - 1);
+    setNavigationIndex(newIndex);
+    
+    // 해당 인덱스의 점자 패턴 표시
+    const pattern = brailleSequence[newIndex];
+    if (pattern) {
+      setBraillePattern(pattern);
+      addLog('info', `이전 점자로 이동: ${newIndex + 1}/${brailleSequence.length}`, { 
+        character: pattern.character,
+        binary: pattern.binary 
+      });
+    }
+  };
+
+  const navigateToNext = () => {
+    if (brailleSequence.length === 0) return;
+    
+    const newIndex = Math.min(brailleSequence.length - 1, navigationIndex + 1);
+    setNavigationIndex(newIndex);
+    
+    // 해당 인덱스의 점자 패턴 표시
+    const pattern = brailleSequence[newIndex];
+    if (pattern) {
+      setBraillePattern(pattern);
+      addLog('info', `다음 점자로 이동: ${newIndex + 1}/${brailleSequence.length}`, { 
+        character: pattern.character,
+        binary: pattern.binary 
+      });
+    }
+  };
+
+  const navigateToFirst = () => {
+    if (brailleSequence.length === 0) return;
+    
+    setNavigationIndex(0);
+    const pattern = brailleSequence[0];
+    if (pattern) {
+      setBraillePattern(pattern);
+      addLog('info', '첫 번째 점자로 이동', { 
+        character: pattern.character,
+        binary: pattern.binary 
+      });
+    }
+  };
+
+  const navigateToLast = () => {
+    if (brailleSequence.length === 0) return;
+    
+    const lastIndex = brailleSequence.length - 1;
+    setNavigationIndex(lastIndex);
+    const pattern = brailleSequence[lastIndex];
+    if (pattern) {
+      setBraillePattern(pattern);
+      addLog('info', '마지막 점자로 이동', { 
+        character: pattern.character,
+        binary: pattern.binary 
+      });
+    }
+  };
+
+  // 구분자별 최적화된 간격 계산
+  const getOptimizedInterval = (separatorType: 'word' | 'sentence' | 'braille', originalInterval: number) => {
+    if (!separatorOptimization.enableOptimization) {
+      return originalInterval;
+    }
+
+    let optimizedDelay: number;
+    switch (separatorType) {
+      case 'word':
+        optimizedDelay = separatorOptimization.wordSeparatorDelay;
+        break;
+      case 'sentence':
+        optimizedDelay = separatorOptimization.sentenceSeparatorDelay;
+        break;
+      case 'braille':
+        optimizedDelay = separatorOptimization.brailleSeparatorDelay;
+        break;
+      default:
+        return originalInterval;
+    }
+
+    // 원본 간격과 최적화된 지연 시간 중 더 적절한 값 선택
+    return Math.max(200, Math.min(originalInterval, optimizedDelay));
+  };
+
+  // 구분자 최적화 설정 업데이트
+  const updateSeparatorOptimization = (key: string, value: number | boolean) => {
+    setSeparatorOptimization(prev => ({
+      ...prev,
+      [key]: value
+    }));
+    addLog('info', `구분자 최적화 설정 변경: ${key} = ${value}`, { key, value });
+  };
+
+  // 문장을 단어별로 분할하는 함수 (구분자 정보 활용)
+  const splitSentenceIntoWords = (sentence: BraillePattern[]) => {
+    const words: BraillePattern[][] = [];
+    let currentWord: BraillePattern[] = [];
+    
+    // sequenceWithSeparators에서 해당 문장의 구분자 정보 찾기
+    const sentenceStartIndex = brailleSequence.findIndex(p => p.timestamp === sentence[0]?.timestamp);
+    const sentenceEndIndex = sentenceStartIndex + sentence.length;
+    
+    // 해당 범위의 구분자 정보 추출
+    const relevantSeparators = sequenceWithSeparators.slice(sentenceStartIndex, sentenceEndIndex);
+    
+    let wordStartIndex = 0;
+    
+    for (let i = 0; i < relevantSeparators.length; i++) {
+      const item = relevantSeparators[i];
+      
+      if (item.type === 'braille') {
+        // 점자 패턴이면 현재 단어에 추가
+        const patternIndex = sentenceStartIndex + i - wordStartIndex;
+        if (patternIndex < sentence.length) {
+          currentWord.push(sentence[patternIndex]);
+        }
+      } else if (item.type === 'word_separator') {
+        // 단어 구분자면 현재 단어를 완성하고 새 단어 시작
+        if (currentWord.length > 0) {
+          words.push([...currentWord]);
+          currentWord = [];
+        }
+      } else if (item.type === 'sentence_separator') {
+        // 문장 구분자면 현재 단어를 완성하고 종료
+        if (currentWord.length > 0) {
+          words.push([...currentWord]);
+        }
+        break;
+      }
+    }
+    
+    // 마지막 단어 처리
+    if (currentWord.length > 0) {
+      words.push(currentWord);
+    }
+    
+    // 구분자 정보가 없으면 전체 문장을 하나의 단어로 처리
+    if (words.length === 0 && sentence.length > 0) {
+      words.push([...sentence]);
+    }
+    
+    return words;
+  };
+
+  // 단어 반복 재생 함수
+  const playWordRepeat = (wordIndex: number) => {
+    if (wordSequence.length === 0 || wordIndex >= wordSequence.length) return;
+    
+    const word = wordSequence[wordIndex];
+    if (word.length === 0) return;
+    
+    setIsPlayingWord(true);
+    setCurrentWordIndex(wordIndex);
+    
+    const playNextBraille = (brailleIndex: number) => {
+      if (brailleIndex >= word.length) {
+        // 단어 재생 완료 후 반복
+        if (autoWordRepeat) {
+          setTimeout(() => {
+            playWordRepeat(wordIndex); // 같은 단어 반복
+          }, 1000); // 1초 대기 후 반복
+        } else {
+          setIsPlayingWord(false);
+        }
+        return;
+      }
+      
+      const pattern = word[brailleIndex];
+      setBraillePattern(pattern);
+      
+      // 다음 점자로 이동 (단어 내에서의 간격)
+      const nextInterval = Math.max(200, brailleInterval / playbackSpeed);
+      
+      setTimeout(() => {
+        playNextBraille(brailleIndex + 1);
+      }, nextInterval);
+    };
+    
+    playNextBraille(0);
+    addLog('info', `단어 ${wordIndex + 1}/${wordSequence.length} 반복 재생 시작`, { 
+      wordIndex, 
+      wordLength: word.length,
+      word: word.map(p => p.character).join('')
+    });
+  };
+
+  // 다음 단어로 이동
+  const navigateToNextWord = () => {
+    if (wordSequence.length === 0) return;
+    
+    const nextWordIndex = Math.min(wordSequence.length - 1, currentWordIndex + 1);
+    setCurrentWordIndex(nextWordIndex);
+    
+    // 기존 단어 재생 중지
+    if (isPlayingWord) {
+      setIsPlayingWord(false);
+    }
+    
+    // 새 단어 재생 시작
+    setTimeout(() => {
+      playWordRepeat(nextWordIndex);
+    }, 200);
+  };
+
+  // 이전 단어로 이동
+  const navigateToPreviousWord = () => {
+    if (wordSequence.length === 0) return;
+    
+    const prevWordIndex = Math.max(0, currentWordIndex - 1);
+    setCurrentWordIndex(prevWordIndex);
+    
+    // 기존 단어 재생 중지
+    if (isPlayingWord) {
+      setIsPlayingWord(false);
+    }
+    
+    // 새 단어 재생 시작
+    setTimeout(() => {
+      playWordRepeat(prevWordIndex);
+    }, 200);
+  };
+
+  // 단어 재생 중지
+  const stopWordPlayback = () => {
+    setIsPlayingWord(false);
+    addLog('info', '단어 재생 중지');
+  };
+
   // 현재 문장 시퀀스 재생 함수
   const playCurrentSentenceSequence = (startIndex: number = 0) => {
     if (currentSentenceSequence.length === 0) return;
@@ -343,32 +624,66 @@ function App() {
       addLog(log.type, log.message, log.data);
     };
 
-    // 구분자 메시지 처리
-    wsServiceRef.current.onWordSeparator = () => {
-      setSequenceWithSeparators(prev => [...prev, { type: 'word_separator', content: ' ' }]);
+  // 구분자 메시지 처리 (개선된 버전)
+  wsServiceRef.current.onWordSeparator = () => {
+    const separatorItem = { 
+      type: 'word_separator', 
+      content: ' ', 
+      timestamp: Date.now(),
+      id: `word_sep_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     };
+    setSequenceWithSeparators(prev => [...prev, separatorItem]);
+    addLog('info', '단어 구분자 수신', { type: 'word_separator' });
+  };
 
     wsServiceRef.current.onSentenceSeparator = () => {
-      setSequenceWithSeparators(prev => [...prev, { type: 'sentence_separator', content: '\n' }]);
+      const separatorItem = { 
+        type: 'sentence_separator', 
+        content: '\n', 
+        timestamp: Date.now(),
+        id: `sentence_sep_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      };
+      setSequenceWithSeparators(prev => [...prev, separatorItem]);
       
-      // 문장 구분자 수신 시 현재 문장 시퀀스 재생 시작
+      // 문장 구분자 수신 시 현재 문장을 단어별로 분할하고 첫 번째 단어 반복 재생
       if (currentSentenceSequence.length > 0) {
-        console.log(`📝 문장 완성: ${currentSentenceSequence.length}개 점자, 재생 시작`);
-        playCurrentSentenceSequence();
+        console.log(`📝 문장 완성: ${currentSentenceSequence.length}개 점자, 단어별 분할 시작`);
+        
+        // 문장을 단어별로 분할
+        const words = splitSentenceIntoWords(currentSentenceSequence);
+        setWordSequence(words);
+        setCurrentWordIndex(0);
+        
+        // 첫 번째 단어 반복 재생 시작
+        if (words.length > 0) {
+          playWordRepeat(0);
+        }
       }
+      addLog('info', '문장 구분자 수신', { type: 'sentence_separator' });
     };
 
-    wsServiceRef.current.onBrailleSeparator = () => {
-      const currentTime = Date.now();
-      const timeSinceLastBraille = currentTime - lastBrailleTimeRef.current;
-      
-      // separator 간격 저장 (최소 200ms, 최대 5000ms)
-      const clampedInterval = Math.max(200, Math.min(5000, timeSinceLastBraille));
-      setSeparatorTimings(prev => [...prev, clampedInterval]);
-      
-      addLog('info', `점자 구분자 수신: 간격 ${clampedInterval}ms`, { interval: clampedInterval });
-      setSequenceWithSeparators(prev => [...prev, { type: 'braille_separator', content: ' ', interval: clampedInterval }]);
+  wsServiceRef.current.onBrailleSeparator = () => {
+    const currentTime = Date.now();
+    const timeSinceLastBraille = currentTime - lastBrailleTimeRef.current;
+    
+    // separator 간격 저장 (최소 200ms, 최대 5000ms)
+    const clampedInterval = Math.max(200, Math.min(5000, timeSinceLastBraille));
+    setSeparatorTimings(prev => [...prev, clampedInterval]);
+    
+    const separatorItem = { 
+      type: 'braille_separator', 
+      content: ' ', 
+      interval: clampedInterval,
+      timestamp: currentTime,
+      id: `braille_sep_${currentTime}_${Math.random().toString(36).substr(2, 9)}`
     };
+    setSequenceWithSeparators(prev => [...prev, separatorItem]);
+    
+    addLog('info', `점자 구분자 수신: 간격 ${clampedInterval}ms`, { 
+      type: 'braille_separator',
+      interval: clampedInterval 
+    });
+  };
 
     // WebSocket 연결 시도
     wsServiceRef.current.connect().catch(console.error);
@@ -444,6 +759,57 @@ function App() {
               isVisible={braillePattern !== null}
             />
           </div>
+          
+          {/* 단어 네비게이션 컨트롤 */}
+          {wordSequence.length > 0 && (
+            <div className="navigation-controls">
+              <div className="navigation-info">
+                단어 {currentWordIndex + 1} / {wordSequence.length}
+                {wordSequence[currentWordIndex] && (
+                  <span className="current-word">
+                    ({wordSequence[currentWordIndex].map(p => p.character).join('')})
+                  </span>
+                )}
+                {isPlayingWord && (
+                  <span className="playing-indicator">🔄 반복 재생 중</span>
+                )}
+              </div>
+              <div className="navigation-buttons">
+                <button 
+                  onClick={navigateToPreviousWord}
+                  className="nav-btn prev-btn"
+                  title="이전 단어"
+                  disabled={currentWordIndex === 0}
+                >
+                  ⏪ 이전 단어
+                </button>
+                <button 
+                  onClick={isPlayingWord ? stopWordPlayback : () => playWordRepeat(currentWordIndex)}
+                  className={`nav-btn ${isPlayingWord ? 'stop-btn' : 'play-btn'}`}
+                  title={isPlayingWord ? "단어 재생 중지" : "단어 재생 시작"}
+                >
+                  {isPlayingWord ? '⏹️ 중지' : '▶️ 재생'}
+                </button>
+                <button 
+                  onClick={navigateToNextWord}
+                  className="nav-btn next-btn"
+                  title="다음 단어"
+                  disabled={currentWordIndex >= wordSequence.length - 1}
+                >
+                  다음 단어 ⏩
+                </button>
+              </div>
+              <div className="word-controls">
+                <button 
+                  onClick={() => setAutoWordRepeat(!autoWordRepeat)}
+                  className={`toggle-btn ${autoWordRepeat ? 'active' : ''}`}
+                  title="자동 단어 반복"
+                >
+                  {autoWordRepeat ? '🔄 자동 반복' : '⏸️ 수동 모드'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="sentence-panel">
@@ -460,6 +826,13 @@ function App() {
                       title={isPlayingCurrentSentence ? "문장 재생 중지" : "현재 문장 재생"}
                     >
                       {isPlayingCurrentSentence ? '⏹️ 중지' : '▶️ 재생'}
+                    </button>
+                    <button 
+                      onClick={replayCurrentSentence}
+                      className="action-btn replay-btn"
+                      title="현재 문장 다시듣기"
+                    >
+                      🔄 다시듣기
                     </button>
                     <button 
                       onClick={clearCurrentSentenceSequence}
@@ -663,6 +1036,13 @@ function App() {
                   {isPlayingSequence ? '⏹️ 중지' : '▶️ 재생'}
                 </button>
                 <button 
+                  onClick={replayBrailleSequence}
+                  className="action-btn replay-btn"
+                  title="전체 시퀀스 다시듣기"
+                >
+                  🔄 다시듣기
+                </button>
+                <button 
                   onClick={clearSequence}
                   className="action-btn clear-btn"
                   title="시퀀스 초기화"
@@ -698,11 +1078,33 @@ function App() {
                             </span>
                           );
                         } else if (item.type === 'word_separator') {
-                          return <span key={`word-sep-${index}`} className="separator-item word-separator"> </span>;
+                          return (
+                            <span 
+                              key={item.id || `word-sep-${index}`} 
+                              className="separator-item word-separator"
+                              title="단어 구분자"
+                            >
+                              [단어]
+                            </span>
+                          );
                         } else if (item.type === 'sentence_separator') {
-                          return <br key={`sentence-sep-${index}`} className="sentence-separator" />;
+                          return (
+                            <br 
+                              key={item.id || `sentence-sep-${index}`} 
+                              className="sentence-separator"
+                              title="문장 구분자"
+                            />
+                          );
                         } else if (item.type === 'braille_separator') {
-                          return <span key={`braille-sep-${index}`} className="separator-item braille-separator"> </span>;
+                          return (
+                            <span 
+                              key={item.id || `braille-sep-${index}`} 
+                              className="separator-item braille-separator"
+                              title={`점자 구분자 (간격: ${item.interval}ms)`}
+                            >
+                              [점자]
+                            </span>
+                          );
                         }
                         return null;
                       })}
@@ -727,11 +1129,33 @@ function App() {
                             </div>
                           );
                         } else if (item.type === 'word_separator') {
-                          return <span key={`word-sep-${index}`} className="separator-item word-separator"> </span>;
+                          return (
+                            <span 
+                              key={item.id || `word-sep-${index}`} 
+                              className="separator-item word-separator"
+                              title="단어 구분자"
+                            >
+                              [단어]
+                            </span>
+                          );
                         } else if (item.type === 'sentence_separator') {
-                          return <br key={`sentence-sep-${index}`} className="sentence-separator" />;
+                          return (
+                            <br 
+                              key={item.id || `sentence-sep-${index}`} 
+                              className="sentence-separator"
+                              title="문장 구분자"
+                            />
+                          );
                         } else if (item.type === 'braille_separator') {
-                          return <span key={`braille-sep-${index}`} className="separator-item braille-separator"> </span>;
+                          return (
+                            <span 
+                              key={item.id || `braille-sep-${index}`} 
+                              className="separator-item braille-separator"
+                              title={`점자 구분자 (간격: ${item.interval}ms)`}
+                            >
+                              [점자]
+                            </span>
+                          );
                         }
                         return null;
                       })}
@@ -924,6 +1348,64 @@ function App() {
                   </div>
                 </div>
                 
+                <div className="time-setting-item">
+                  <label>구분자별 시간 최적화:</label>
+                  <div className="optimization-toggle">
+                    <button 
+                      onClick={() => updateSeparatorOptimization('enableOptimization', !separatorOptimization.enableOptimization)}
+                      className={`toggle-btn ${separatorOptimization.enableOptimization ? 'active' : ''}`}
+                    >
+                      {separatorOptimization.enableOptimization ? '✅ 활성화' : '❌ 비활성화'}
+                    </button>
+                  </div>
+                </div>
+
+                {separatorOptimization.enableOptimization && (
+                  <>
+                    <div className="time-setting-item">
+                      <label htmlFor="word-separator-delay">단어 구분자 지연: {separatorOptimization.wordSeparatorDelay}ms</label>
+                      <input
+                        id="word-separator-delay"
+                        type="range"
+                        min="200"
+                        max="3000"
+                        step="100"
+                        value={separatorOptimization.wordSeparatorDelay}
+                        onChange={(e) => updateSeparatorOptimization('wordSeparatorDelay', Number(e.target.value))}
+                        className="duration-slider"
+                      />
+                    </div>
+
+                    <div className="time-setting-item">
+                      <label htmlFor="sentence-separator-delay">문장 구분자 지연: {separatorOptimization.sentenceSeparatorDelay}ms</label>
+                      <input
+                        id="sentence-separator-delay"
+                        type="range"
+                        min="500"
+                        max="5000"
+                        step="100"
+                        value={separatorOptimization.sentenceSeparatorDelay}
+                        onChange={(e) => updateSeparatorOptimization('sentenceSeparatorDelay', Number(e.target.value))}
+                        className="duration-slider"
+                      />
+                    </div>
+
+                    <div className="time-setting-item">
+                      <label htmlFor="braille-separator-delay">점자 구분자 지연: {separatorOptimization.brailleSeparatorDelay}ms</label>
+                      <input
+                        id="braille-separator-delay"
+                        type="range"
+                        min="100"
+                        max="2000"
+                        step="50"
+                        value={separatorOptimization.brailleSeparatorDelay}
+                        onChange={(e) => updateSeparatorOptimization('brailleSeparatorDelay', Number(e.target.value))}
+                        className="duration-slider"
+                      />
+                    </div>
+                  </>
+                )}
+
                 <div className="time-info">
                   <h4>설명:</h4>
                   <ul>
@@ -932,6 +1414,7 @@ function App() {
                     <li><strong>원본 속도</strong>: braille_separator로 측정된 실제 입력 간격 사용</li>
                     <li><strong>적응형</strong>: 원본 간격을 속도 배율로 조정하여 재생</li>
                     <li><strong>재생 속도</strong>: 0.1x~5.0x 범위에서 속도 조절 (실시간)</li>
+                    <li><strong>구분자 최적화</strong>: 단어/문장/점자 구분자별로 다른 지연 시간 설정</li>
                     <li><strong>측정된 간격</strong>: {separatorTimings.length}개 ({separatorTimings.length > 0 ? separatorTimings.map(t => `${t/1000}초`).join(', ') : '없음'})</li>
                   </ul>
                 </div>
