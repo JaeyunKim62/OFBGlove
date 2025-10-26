@@ -444,6 +444,9 @@ function App() {
     // 입력된 패턴을 상태에 추가
     setInputPatterns(prev => [...prev, newPattern]);
     
+    // 현재 문장 시퀀스에도 추가
+    setCurrentSentenceSequence(prev => [...prev, newPattern]);
+    
     // 전체 시퀀스에도 추가
     setBrailleSequence(prev => [...prev, newPattern]);
     setSequenceWithSeparators(prev => [...prev, { type: 'braille', pattern: newPattern }]);
@@ -817,7 +820,38 @@ function App() {
           {/* 현재 문장 시퀀스 표시 */}
           <div className="current-sentence-section">
             <div className="section-header">
-              <h4>현재 문장 시퀀스</h4>
+              <div className="sentence-title-section">
+                <h4>현재 문장 시퀀스</h4>
+                {currentSentenceSequence.length > 0 && (
+                  <div className="sentence-source-stats">
+                    {(() => {
+                      const esp32Count = currentSentenceSequence.filter(p => p.source === 'esp32').length;
+                      const webCount = currentSentenceSequence.filter(p => p.source === 'web').length;
+                      const demoCount = currentSentenceSequence.filter(p => p.source === 'demo').length;
+                      
+                      return (
+                        <div className="source-stats">
+                          {esp32Count > 0 && (
+                            <span className="source-stat esp32-stat">
+                              📡 {esp32Count}개
+                            </span>
+                          )}
+                          {webCount > 0 && (
+                            <span className="source-stat web-stat">
+                              💻 {webCount}개
+                            </span>
+                          )}
+                          {demoCount > 0 && (
+                            <span className="source-stat demo-stat">
+                              🎮 {demoCount}개
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
               <div className="sentence-controls">
                 {currentSentenceSequence.length > 0 && (
                   <>
@@ -858,7 +892,8 @@ function App() {
                     return (
                       <span 
                         key={`sentence-char-${pattern.timestamp}-${index}`} 
-                        className={`sentence-character-item ${isCurrent ? 'current-braille' : ''}`}
+                        className={`sentence-character-item ${isCurrent ? 'current-braille' : ''} source-${pattern.source}`}
+                        title={`${pattern.source === 'esp32' ? 'WiFi 외부 입력' : pattern.source === 'web' ? '웹 직접 입력' : '데모'} - ${pattern.binary}`}
                       >
                         {pattern.character || '?'}
                       </span>
@@ -873,7 +908,8 @@ function App() {
                     return (
                       <div 
                         key={`sentence-braille-${pattern.timestamp}-${index}`} 
-                        className={`sentence-braille-item ${isCurrent ? 'current-braille' : ''}`}
+                        className={`sentence-braille-item ${isCurrent ? 'current-braille' : ''} source-${pattern.source}`}
+                        title={`${pattern.source === 'esp32' ? 'WiFi 외부 입력' : pattern.source === 'web' ? '웹 직접 입력' : '데모'} - ${pattern.binary}`}
                       >
                         <BrailleCell 
                           dots={pattern.dots}

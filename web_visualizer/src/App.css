@@ -1271,6 +1271,25 @@
   transition: all 0.3s ease;
 }
 
+/* 문장 시퀀스 소스별 스타일 */
+.sentence-character-item.source-esp32 {
+  background: #e3f2fd;
+  border-color: #2196f3;
+  color: #1976d2;
+}
+
+.sentence-character-item.source-web {
+  background: #f3e5f5;
+  border-color: #9c27b0;
+  color: #7b1fa2;
+}
+
+.sentence-character-item.source-demo {
+  background: #e8f5e8;
+  border-color: #4caf50;
+  color: #388e3c;
+}
+
 .sentence-braille-line {
   display: flex;
   gap: 4px;
@@ -1294,6 +1313,46 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   margin: 1px;
   transition: all 0.3s ease;
+}
+
+/* 문장 시퀀스 점자 아이템 소스별 스타일 */
+.sentence-braille-item.source-esp32 {
+  background: #e3f2fd;
+  border-color: #2196f3;
+}
+
+.sentence-braille-item.source-web {
+  background: #f3e5f5;
+  border-color: #9c27b0;
+}
+
+.sentence-braille-item.source-demo {
+  background: #e8f5e8;
+  border-color: #4caf50;
+}
+
+/* 문장 시퀀스 헤더 스타일 */
+.sentence-title-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sentence-source-stats {
+  margin-top: 5px;
+}
+
+.sentence-source-stats .source-stats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sentence-source-stats .source-stat {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .sentence-progress {
