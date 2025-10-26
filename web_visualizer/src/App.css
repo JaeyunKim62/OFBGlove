@@ -570,6 +570,42 @@
   overflow-y: auto;
 }
 
+/* 시퀀스 통계 스타일 */
+.sequence-stats {
+  margin-bottom: 15px;
+}
+
+.source-stats {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.source-stat {
+  padding: 5px 10px;
+  border-radius: 15px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.source-stat.esp32-stat {
+  background: #e3f2fd;
+  color: #1976d2;
+  border: 1px solid #2196f3;
+}
+
+.source-stat.web-stat {
+  background: #f3e5f5;
+  color: #7b1fa2;
+  border: 1px solid #9c27b0;
+}
+
+.source-stat.demo-stat {
+  background: #e8f5e8;
+  color: #388e3c;
+  border: 1px solid #4caf50;
+}
+
 .no-sequence {
   text-align: center;
   color: #666;
@@ -614,6 +650,25 @@
   margin: 1px;
 }
 
+/* 소스별 스타일 */
+.character-item.source-esp32 {
+  background: #e3f2fd;
+  border-color: #2196f3;
+  color: #1976d2;
+}
+
+.character-item.source-web {
+  background: #f3e5f5;
+  border-color: #9c27b0;
+  color: #7b1fa2;
+}
+
+.character-item.source-demo {
+  background: #e8f5e8;
+  border-color: #4caf50;
+  color: #388e3c;
+}
+
 .braille-line {
   display: flex;
   gap: 4px;
@@ -633,6 +688,22 @@
   border: 1px solid #dee2e6;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   margin: 1px;
+}
+
+/* 점자 아이템 소스별 스타일 */
+.braille-item.source-esp32 {
+  background: #e3f2fd;
+  border-color: #2196f3;
+}
+
+.braille-item.source-web {
+  background: #f3e5f5;
+  border-color: #9c27b0;
+}
+
+.braille-item.source-demo {
+  background: #e8f5e8;
+  border-color: #4caf50;
 }
 
 /* 네비게이션 컨트롤 스타일 */

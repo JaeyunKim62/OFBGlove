@@ -417,6 +417,20 @@ function App() {
     addLog('info', '단어 재생 중지');
   };
 
+  // 소스별 패턴 분류 함수
+  const getPatternsBySource = () => {
+    const esp32Patterns = brailleSequence.filter(p => p.source === 'esp32');
+    const webPatterns = brailleSequence.filter(p => p.source === 'web');
+    const demoPatterns = brailleSequence.filter(p => p.source === 'demo');
+    
+    return {
+      esp32: esp32Patterns,
+      web: webPatterns,
+      demo: demoPatterns,
+      total: brailleSequence.length
+    };
+  };
+
   // 점자 입력 관련 함수들
   const handleBraillePatternComplete = (pattern: BrailleDot[]) => {
     const newPattern: BraillePattern = {
@@ -1047,6 +1061,30 @@ function App() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>📝 점자 입력 시퀀스 ({brailleSequence.length}개)</h3>
+              <div className="sequence-stats">
+                {(() => {
+                  const patterns = getPatternsBySource();
+                  return (
+                    <div className="source-stats">
+                      {patterns.esp32.length > 0 && (
+                        <span className="source-stat esp32-stat">
+                          📡 WiFi: {patterns.esp32.length}개
+                        </span>
+                      )}
+                      {patterns.web.length > 0 && (
+                        <span className="source-stat web-stat">
+                          💻 웹입력: {patterns.web.length}개
+                        </span>
+                      )}
+                      {patterns.demo.length > 0 && (
+                        <span className="source-stat demo-stat">
+                          🎮 데모: {patterns.demo.length}개
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
               <div className="modal-actions">
                 <button 
                   onClick={isPlayingSequence ? stopBrailleSequence : playBrailleSequence}
@@ -1092,7 +1130,8 @@ function App() {
                           return (
                             <span 
                               key={`char-${item.pattern.timestamp}-${index}`} 
-                              className={`character-item ${isCurrent ? 'current-braille' : ''}`}
+                              className={`character-item ${isCurrent ? 'current-braille' : ''} source-${item.pattern.source}`}
+                              title={`${item.pattern.source === 'esp32' ? 'WiFi 외부 입력' : item.pattern.source === 'web' ? '웹 직접 입력' : '데모'} - ${item.pattern.binary}`}
                             >
                               {item.pattern.character || '?'}
                             </span>
@@ -1139,7 +1178,8 @@ function App() {
                           return (
                             <div 
                               key={`braille-${item.pattern.timestamp}-${index}`} 
-                              className={`braille-item ${isCurrent ? 'current-braille' : ''}`}
+                              className={`braille-item ${isCurrent ? 'current-braille' : ''} source-${item.pattern.source}`}
+                              title={`${item.pattern.source === 'esp32' ? 'WiFi 외부 입력' : item.pattern.source === 'web' ? '웹 직접 입력' : '데모'} - ${item.pattern.binary}`}
                             >
                               <BrailleCell 
                                 dots={item.pattern.dots}
