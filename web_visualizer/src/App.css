@@ -18,6 +18,34 @@
   gap: 15px;
 }
 
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.data-collection-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.data-collection-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.data-collection-btn:active {
+  transform: translateY(0);
+}
+
 .App-header h1 {
   margin: 0;
   color: #333;
@@ -414,6 +442,77 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+/* 데이터 수집 모달 */
+.data-modal {
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.data-panel-content {
+  padding: 20px;
+}
+
+.data-panel-content .panel-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.data-panel-content .data-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.data-panel-content .data-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.data-panel-content .current-pattern {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.data-panel-content .current-pattern h4 {
+  margin: 0 0 10px 0;
+  color: #495057;
+}
+
+.data-panel-content .pattern-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.data-panel-content .pattern-binary {
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  color: #007bff;
+}
+
+.data-panel-content .pattern-character {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #28a745;
+}
+
+.data-panel-content .pattern-source {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+.data-panel-content .pattern-time {
+  color: #6c757d;
+  font-size: 0.9rem;
 }
 
 .modal-header {

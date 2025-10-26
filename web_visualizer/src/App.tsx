@@ -34,6 +34,7 @@ function App() {
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
   const [displayDuration, setDisplayDuration] = useState(3000); // 기본 3초
   const [showTimeSettings, setShowTimeSettings] = useState(false);
+  const [showDataPanel, setShowDataPanel] = useState(false);
   const [displayMode, setDisplayMode] = useState<'hide' | 'fade' | 'keep'>('hide'); // 표시 모드
   const [brailleInterval, setBrailleInterval] = useState(1000); // 점자 간 간격 1초
   const [currentBrailleIndex, setCurrentBrailleIndex] = useState(0);
@@ -712,15 +713,24 @@ function App() {
     <div className="App">
       <header className="App-header">
         <h1>OFBGlove 점자 비주얼라이저</h1>
-        <div className="connection-status">
-          <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
-            {isConnected ? '연결됨' : '연결 끊김'}
+        <div className="header-controls">
+          <div className="connection-status">
+            <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
+              {isConnected ? '연결됨' : '연결 끊김'}
+            </div>
+            {!isConnected && (
+              <button onClick={handleReconnect} className="reconnect-btn">
+                재연결
+              </button>
+            )}
           </div>
-          {!isConnected && (
-            <button onClick={handleReconnect} className="reconnect-btn">
-              재연결
-            </button>
-          )}
+          <button 
+            onClick={() => setShowDataPanel(true)} 
+            className="data-collection-btn"
+            title="데이터 수집"
+          >
+            📊 데이터 수집
+          </button>
         </div>
       </header>
 
@@ -872,113 +882,124 @@ function App() {
           </div>
         </div>
 
-        <div className="data-panel">
-          <div className="panel-header">
-            <h3>데이터 수집</h3>
-            <div className="panel-buttons">
-              <button 
-                onClick={() => setShowConnectionInfo(true)} 
-                className="popup-btn connection-btn"
-                title="연결 정보"
-              >
-                📱 연결 정보
-              </button>
-              <button 
-                onClick={() => setShowServerLog(true)} 
-                className="popup-btn log-btn"
-                title="서버 로그"
-              >
-                📋 서버 로그
-              </button>
-              <button 
-                onClick={() => setShowSequence(true)} 
-                className="popup-btn sequence-btn"
-                title="점자 시퀀스"
-              >
-                📝 시퀀스 ({brailleSequence.length})
-              </button>
-              <button 
-                onClick={() => setShowTimeSettings(true)} 
-                className="popup-btn time-btn"
-                title="표시 시간 설정"
-              >
-                ⏱️ 시간 ({displayDuration/1000}초)
-              </button>
-              <button 
-                onClick={toggleInputMode}
-                className={`popup-btn input-btn ${isInputMode ? 'active' : ''}`}
-                title="점자 입력 모드 토글"
-              >
-                {isInputMode ? '✏️ 입력 활성화' : '✏️ 입력 비활성화'}
-              </button>
-            </div>
+        {/* 점자 입력 섹션 - 메인 화면에 직접 표시 */}
+        {isInputMode && (
+          <div className="braille-input-section">
+            <BrailleInput
+              onPatternComplete={handleBraillePatternComplete}
+              onPatternChange={handleBraillePatternChange}
+              isEnabled={isInputMode}
+            />
           </div>
-          <div className="data-stats">
-            <div className="stat-item">
-              <span className="stat-label">총 패턴:</span>
-              <span className="stat-value">{data.totalCount}</span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-label">고유 패턴:</span>
-              <span className="stat-value">{statistics?.uniquePatterns || 0}</span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-label">분당 평균:</span>
-              <span className="stat-value">{statistics?.averagePatternsPerMinute || 0}</span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-label">마지막 활동:</span>
-              <span className="stat-value">
-                {data.lastUpdated ? new Date(data.lastUpdated).toLocaleTimeString() : '없음'}
-              </span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-label">입력된 패턴:</span>
-              <span className="stat-value">{inputPatterns.length}</span>
-            </div>
-          </div>
-          
-          {/* 점자 입력 섹션 */}
-          {isInputMode && (
-            <div className="braille-input-section">
-              <BrailleInput
-                onPatternComplete={handleBraillePatternComplete}
-                onPatternChange={handleBraillePatternChange}
-                isEnabled={isInputMode}
-              />
-            </div>
-          )}
-          
-          <div className="data-actions">
-            <button onClick={handleClearData} className="action-btn clear-btn">
-              데이터 초기화
-            </button>
-            <button onClick={handleExportData} className="action-btn export-btn">
-              데이터 내보내기
-            </button>
-          </div>
+        )}
+      </main>
 
-          {braillePattern && (
-            <div className="current-pattern">
-              <h4>현재 패턴</h4>
-              <div className="pattern-info">
-                <div className="pattern-binary">
-                  {braillePattern.dots.map(d => d.isActive ? '1' : '0').join('')}
+      {/* 데이터 수집 모달 */}
+      {showDataPanel && (
+        <div className="modal-overlay" onClick={() => setShowDataPanel(false)}>
+          <div className="modal-content data-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>데이터 수집</h3>
+              <button 
+                className="modal-close" 
+                onClick={() => setShowDataPanel(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="data-panel-content">
+              <div className="panel-buttons">
+                <button 
+                  onClick={() => setShowConnectionInfo(true)} 
+                  className="popup-btn connection-btn"
+                  title="연결 정보"
+                >
+                  📱 연결 정보
+                </button>
+                <button 
+                  onClick={() => setShowServerLog(true)} 
+                  className="popup-btn log-btn"
+                  title="서버 로그"
+                >
+                  📋 서버 로그
+                </button>
+                <button 
+                  onClick={() => setShowSequence(true)} 
+                  className="popup-btn sequence-btn"
+                  title="점자 시퀀스"
+                >
+                  📝 시퀀스 ({brailleSequence.length})
+                </button>
+                <button 
+                  onClick={() => setShowTimeSettings(true)} 
+                  className="popup-btn time-btn"
+                  title="표시 시간 설정"
+                >
+                  ⏱️ 시간 ({displayDuration/1000}초)
+                </button>
+                <button 
+                  onClick={toggleInputMode}
+                  className={`popup-btn input-btn ${isInputMode ? 'active' : ''}`}
+                  title="점자 입력 모드 토글"
+                >
+                  {isInputMode ? '✏️ 입력 활성화' : '✏️ 입력 비활성화'}
+                </button>
+              </div>
+              <div className="data-stats">
+                <div className="stat-item">
+                  <span className="stat-label">총 패턴:</span>
+                  <span className="stat-value">{data.totalCount}</span>
                 </div>
-                <div className="pattern-character">
-                  {braillePattern.character || '?'}
+                <div className="stat-item">
+                  <span className="stat-label">고유 패턴:</span>
+                  <span className="stat-value">{statistics?.uniquePatterns || 0}</span>
                 </div>
-                <div className="pattern-source">
-                  소스: {braillePattern.source}
+                <div className="stat-item">
+                  <span className="stat-label">분당 평균:</span>
+                  <span className="stat-value">{statistics?.averagePatternsPerMinute || 0}</span>
                 </div>
-                <div className="pattern-time">
-                  {new Date(braillePattern.timestamp).toLocaleTimeString()}
+                <div className="stat-item">
+                  <span className="stat-label">마지막 활동:</span>
+                  <span className="stat-value">
+                    {data.lastUpdated ? new Date(data.lastUpdated).toLocaleTimeString() : '없음'}
+                  </span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-label">입력된 패턴:</span>
+                  <span className="stat-value">{inputPatterns.length}</span>
                 </div>
               </div>
+              <div className="data-actions">
+                <button onClick={handleClearData} className="action-btn clear-btn">
+                  데이터 초기화
+                </button>
+                <button onClick={handleExportData} className="action-btn export-btn">
+                  데이터 내보내기
+                </button>
+              </div>
+              {braillePattern && (
+                <div className="current-pattern">
+                  <h4>현재 패턴</h4>
+                  <div className="pattern-info">
+                    <div className="pattern-binary">
+                      {braillePattern.dots.map(d => d.isActive ? '1' : '0').join('')}
+                    </div>
+                    <div className="pattern-character">
+                      {braillePattern.character || '?'}
+                    </div>
+                    <div className="pattern-source">
+                      소스: {braillePattern.source}
+                    </div>
+                    <div className="pattern-time">
+                      {new Date(braillePattern.timestamp).toLocaleTimeString()}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
-      </main>
+      )}
 
       {/* 연결 정보 모달 */}
       {showConnectionInfo && (
