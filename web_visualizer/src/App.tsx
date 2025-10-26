@@ -1031,9 +1031,6 @@ function App() {
                 <div className="current-pattern">
                   <h4>현재 패턴</h4>
                   <div className="pattern-info">
-                    <div className="pattern-binary">
-                      {braillePattern.dots.map(d => d.isActive ? '1' : '0').join('')}
-                    </div>
                     <div className="pattern-character">
                       {braillePattern.character || '?'}
                     </div>

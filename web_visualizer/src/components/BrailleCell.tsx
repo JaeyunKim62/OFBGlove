@@ -70,9 +70,6 @@ export const BrailleCell: React.FC<BrailleCellProps> = ({
           );
         })}
       </div>
-      <div className="braille-cell-pattern">
-        {dots.map(d => d.isActive ? '1' : '0').join('')}
-      </div>
       <div className="braille-cell-character">
         {getBrailleCharacter(dots)}
       </div>

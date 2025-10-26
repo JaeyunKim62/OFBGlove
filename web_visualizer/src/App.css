@@ -316,17 +316,6 @@
   gap: 10px;
 }
 
-.pattern-binary {
-  font-family: 'Courier New', monospace;
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #007bff;
-  background: #f8f9fa;
-  padding: 10px;
-  border-radius: 6px;
-  text-align: center;
-  border: 2px solid #007bff;
-}
 
 .pattern-character {
   font-size: 2.5rem;
@@ -411,9 +400,6 @@
     font-size: 2rem;
   }
   
-  .pattern-binary {
-    font-size: 1.2rem;
-  }
 }
 
 /* 모달 스타일 */
@@ -493,11 +479,6 @@
   gap: 10px;
 }
 
-.data-panel-content .pattern-binary {
-  font-family: 'Courier New', monospace;
-  font-weight: bold;
-  color: #007bff;
-}
 
 .data-panel-content .pattern-character {
   font-size: 1.2rem;
