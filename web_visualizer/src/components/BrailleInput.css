@@ -1,0 +1,262 @@
+/* 점자 입력 컴포넌트 스타일 */
+.braille-input {
+  background: white;
+  border: 2px solid #dee2e6;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 20px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.braille-input.input-active {
+  border-color: #007bff;
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
+}
+
+.braille-input-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.braille-input-header h4 {
+  margin: 0;
+  color: #333;
+  font-size: 1.2rem;
+}
+
+.input-status {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.status-active {
+  color: #28a745;
+  background: #d4edda;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.status-inactive {
+  color: #6c757d;
+  background: #f8f9fa;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+/* 점자 입력 그리드 */
+.braille-input-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr 1fr;
+  gap: 8px;
+  width: 120px;
+  height: 180px;
+  margin: 0 auto 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 12px;
+  border: 2px solid #e9ecef;
+}
+
+.braille-input-dot {
+  position: relative;
+  background: white;
+  border: 2px solid #dee2e6;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.braille-input-dot.clickable:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.braille-input-dot.active {
+  background: #007bff;
+  border-color: #0056b3;
+  color: white;
+}
+
+.braille-input-dot.active .braille-input-dot-inner {
+  background: white;
+  transform: scale(0.8);
+}
+
+.braille-input-dot-inner {
+  width: 20px;
+  height: 20px;
+  background: #6c757d;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.braille-input-dot-label {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #6c757d;
+  color: white;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.braille-input-dot.active .braille-input-dot-label {
+  background: #0056b3;
+}
+
+/* 점자 입력 정보 */
+.braille-input-info {
+  text-align: center;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.pattern-count {
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+/* 점자 입력 컨트롤 */
+.braille-input-controls {
+  margin-bottom: 15px;
+}
+
+.control-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin: 0 5px;
+  min-width: 80px;
+}
+
+.start-btn {
+  background: #28a745;
+  color: white;
+}
+
+.start-btn:hover:not(:disabled) {
+  background: #218838;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+}
+
+.confirm-btn {
+  background: #007bff;
+  color: white;
+}
+
+.confirm-btn:hover:not(:disabled) {
+  background: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
+}
+
+.complete-btn {
+  background: #28a745;
+  color: white;
+}
+
+.complete-btn:hover:not(:disabled) {
+  background: #218838;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+}
+
+.cancel-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.cancel-btn:hover:not(:disabled) {
+  background: #c82333;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+}
+
+.control-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.input-controls {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.completion-message {
+  text-align: center;
+  color: #28a745;
+  font-weight: 600;
+  padding: 10px;
+  background: #d4edda;
+  border-radius: 6px;
+  border: 1px solid #c3e6cb;
+}
+
+/* 도움말 */
+.braille-input-help {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #6c757d;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.braille-input-help p {
+  margin: 0;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .braille-input-grid {
+    width: 100px;
+    height: 150px;
+  }
+  
+  .braille-input-dot-inner {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .braille-input-dot-label {
+    width: 16px;
+    height: 16px;
+    font-size: 0.6rem;
+  }
+  
+  .pattern-character {
+    font-size: 1.5rem;
+  }
+  
+  .control-btn {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+  }
+}

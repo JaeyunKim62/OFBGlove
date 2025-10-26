@@ -695,6 +695,25 @@
   min-width: 100px;
 }
 
+/* 점자 입력 섹션 스타일 */
+.braille-input-section {
+  margin: 20px 0;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  border: 2px solid #007bff;
+}
+
+.popup-btn.input-btn.active {
+  background: #007bff;
+  color: white;
+  border-color: #0056b3;
+}
+
+.popup-btn.input-btn.active:hover {
+  background: #0056b3;
+}
+
 /* 구분자 스타일 */
 .separator-item {
   display: inline-block;

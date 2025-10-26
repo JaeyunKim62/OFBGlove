@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BrailleCell } from './components/BrailleCell';
+import { BrailleInput } from './components/BrailleInput';
 import { ConnectionInfo } from './components/ConnectionInfo';
 import { ServerLog } from './components/ServerLog';
 import { WebSocketService } from './services/WebSocketService';
 import { DataCollector } from './utils/dataCollector';
-import { BraillePattern, BrailleData } from './types/braille';
+import { BraillePattern, BrailleData, BrailleDot } from './types/braille';
 import './App.css';
 
 interface LogEntry {
@@ -20,7 +21,6 @@ function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [data, setData] = useState<BrailleData>({ patterns: [], totalCount: 0, lastUpdated: 0 });
   const [statistics, setStatistics] = useState<any>(null);
-  const [localIP, setLocalIP] = useState<string>('');
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showConnectionInfo, setShowConnectionInfo] = useState(false);
   const [showServerLog, setShowServerLog] = useState(false);
@@ -53,6 +53,8 @@ function App() {
     brailleSeparatorDelay: 500, // 점자 구분자 지연 시간
     enableOptimization: true // 최적화 활성화
   });
+  const [isInputMode, setIsInputMode] = useState(true); // 점자 입력 모드 (기본 활성화)
+  const [inputPatterns, setInputPatterns] = useState<BraillePattern[]>([]); // 입력된 점자 패턴들
   
   const wsServiceRef = useRef<WebSocketService | null>(null);
   const dataCollectorRef = useRef<DataCollector | null>(null);
@@ -137,10 +139,6 @@ function App() {
     }
   };
 
-  // 점자 패턴 표시 시간 제어 (기존 함수 - 호환성 유지)
-  const displayBraillePattern = (pattern: BraillePattern) => {
-    displayRealTimeBraillePattern(pattern);
-  };
 
   // 점자 시퀀스 재생 함수 (개선된 버전)
   const playBrailleSequence = () => {
@@ -272,94 +270,7 @@ function App() {
     }, 200);
   };
 
-  // 네비게이션 함수들
-  const navigateToPrevious = () => {
-    if (brailleSequence.length === 0) return;
-    
-    const newIndex = Math.max(0, navigationIndex - 1);
-    setNavigationIndex(newIndex);
-    
-    // 해당 인덱스의 점자 패턴 표시
-    const pattern = brailleSequence[newIndex];
-    if (pattern) {
-      setBraillePattern(pattern);
-      addLog('info', `이전 점자로 이동: ${newIndex + 1}/${brailleSequence.length}`, { 
-        character: pattern.character,
-        binary: pattern.binary 
-      });
-    }
-  };
 
-  const navigateToNext = () => {
-    if (brailleSequence.length === 0) return;
-    
-    const newIndex = Math.min(brailleSequence.length - 1, navigationIndex + 1);
-    setNavigationIndex(newIndex);
-    
-    // 해당 인덱스의 점자 패턴 표시
-    const pattern = brailleSequence[newIndex];
-    if (pattern) {
-      setBraillePattern(pattern);
-      addLog('info', `다음 점자로 이동: ${newIndex + 1}/${brailleSequence.length}`, { 
-        character: pattern.character,
-        binary: pattern.binary 
-      });
-    }
-  };
-
-  const navigateToFirst = () => {
-    if (brailleSequence.length === 0) return;
-    
-    setNavigationIndex(0);
-    const pattern = brailleSequence[0];
-    if (pattern) {
-      setBraillePattern(pattern);
-      addLog('info', '첫 번째 점자로 이동', { 
-        character: pattern.character,
-        binary: pattern.binary 
-      });
-    }
-  };
-
-  const navigateToLast = () => {
-    if (brailleSequence.length === 0) return;
-    
-    const lastIndex = brailleSequence.length - 1;
-    setNavigationIndex(lastIndex);
-    const pattern = brailleSequence[lastIndex];
-    if (pattern) {
-      setBraillePattern(pattern);
-      addLog('info', '마지막 점자로 이동', { 
-        character: pattern.character,
-        binary: pattern.binary 
-      });
-    }
-  };
-
-  // 구분자별 최적화된 간격 계산
-  const getOptimizedInterval = (separatorType: 'word' | 'sentence' | 'braille', originalInterval: number) => {
-    if (!separatorOptimization.enableOptimization) {
-      return originalInterval;
-    }
-
-    let optimizedDelay: number;
-    switch (separatorType) {
-      case 'word':
-        optimizedDelay = separatorOptimization.wordSeparatorDelay;
-        break;
-      case 'sentence':
-        optimizedDelay = separatorOptimization.sentenceSeparatorDelay;
-        break;
-      case 'braille':
-        optimizedDelay = separatorOptimization.brailleSeparatorDelay;
-        break;
-      default:
-        return originalInterval;
-    }
-
-    // 원본 간격과 최적화된 지연 시간 중 더 적절한 값 선택
-    return Math.max(200, Math.min(originalInterval, optimizedDelay));
-  };
 
   // 구분자 최적화 설정 업데이트
   const updateSeparatorOptimization = (key: string, value: number | boolean) => {
@@ -503,6 +414,71 @@ function App() {
   const stopWordPlayback = () => {
     setIsPlayingWord(false);
     addLog('info', '단어 재생 중지');
+  };
+
+  // 점자 입력 관련 함수들
+  const handleBraillePatternComplete = (pattern: BrailleDot[]) => {
+    const newPattern: BraillePattern = {
+      dots: pattern,
+      timestamp: Date.now(),
+      source: 'web',
+      character: getBrailleCharacter(pattern),
+      binary: pattern.map(d => d.isActive ? '1' : '0').join('')
+    };
+
+    // 입력된 패턴을 상태에 추가
+    setInputPatterns(prev => [...prev, newPattern]);
+    
+    // 전체 시퀀스에도 추가
+    setBrailleSequence(prev => [...prev, newPattern]);
+    setSequenceWithSeparators(prev => [...prev, { type: 'braille', pattern: newPattern }]);
+    
+    // 데이터 수집기에 추가
+    dataCollectorRef.current?.addPattern(newPattern);
+    
+    // 로그 추가
+    addLog('success', `점자 패턴 입력 완료: ${newPattern.binary} (${newPattern.character})`, newPattern);
+    
+    // 입력 모드는 계속 유지 - setIsInputMode(false) 제거
+  };
+
+  const handleBraillePatternChange = (pattern: BrailleDot[]) => {
+    // 실시간으로 패턴 변경 시 현재 패턴 표시 (입력 모드는 유지)
+    const tempPattern: BraillePattern = {
+      dots: pattern,
+      timestamp: Date.now(),
+      source: 'web',
+      character: getBrailleCharacter(pattern),
+      binary: pattern.map(d => d.isActive ? '1' : '0').join('')
+    };
+    
+    setBraillePattern(tempPattern);
+    // 입력 모드는 유지 - setIsInputMode(false) 제거
+  };
+
+  // 점자 문자 변환 함수
+  const getBrailleCharacter = (pattern: BrailleDot[]): string => {
+    const binary = pattern.map(d => d.isActive ? '1' : '0').join('');
+    const brailleMap: { [key: string]: string } = {
+      "100000": "A", "110000": "B", "100100": "C", "100110": "D",
+      "100010": "E", "110100": "F", "110110": "G", "110010": "H",
+      "010100": "I", "010110": "J", "101000": "K", "111000": "L",
+      "101100": "M", "101110": "N", "101010": "O", "111100": "P",
+      "111110": "Q", "111010": "R", "011100": "S", "011110": "T",
+      "101001": "U", "111001": "V", "010111": "W", "101101": "X",
+      "101111": "Y", "101011": "Z", "000000": " "
+    };
+    return brailleMap[binary] || "?";
+  };
+
+  // 입력 모드 토글
+  const toggleInputMode = () => {
+    setIsInputMode(!isInputMode);
+    if (!isInputMode) {
+      addLog('info', '점자 입력 모드 활성화');
+    } else {
+      addLog('info', '점자 입력 모드 비활성화');
+    }
   };
 
   // 현재 문장 시퀀스 재생 함수
@@ -699,6 +675,7 @@ function App() {
       }
       isRealTimeInputRef.current = false;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleDotClick = (id: number) => {
@@ -927,6 +904,13 @@ function App() {
               >
                 ⏱️ 시간 ({displayDuration/1000}초)
               </button>
+              <button 
+                onClick={toggleInputMode}
+                className={`popup-btn input-btn ${isInputMode ? 'active' : ''}`}
+                title="점자 입력 모드 토글"
+              >
+                {isInputMode ? '✏️ 입력 활성화' : '✏️ 입력 비활성화'}
+              </button>
             </div>
           </div>
           <div className="data-stats">
@@ -948,7 +932,22 @@ function App() {
                 {data.lastUpdated ? new Date(data.lastUpdated).toLocaleTimeString() : '없음'}
               </span>
             </div>
+            <div className="stat-item">
+              <span className="stat-label">입력된 패턴:</span>
+              <span className="stat-value">{inputPatterns.length}</span>
+            </div>
           </div>
+          
+          {/* 점자 입력 섹션 */}
+          {isInputMode && (
+            <div className="braille-input-section">
+              <BrailleInput
+                onPatternComplete={handleBraillePatternComplete}
+                onPatternChange={handleBraillePatternChange}
+                isEnabled={isInputMode}
+              />
+            </div>
+          )}
           
           <div className="data-actions">
             <button onClick={handleClearData} className="action-btn clear-btn">
@@ -995,7 +994,7 @@ function App() {
               </button>
             </div>
             <div className="modal-body">
-              <ConnectionInfo onIPDetected={setLocalIP} />
+              <ConnectionInfo />
             </div>
           </div>
         </div>
