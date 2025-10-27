@@ -42,8 +42,6 @@ function App() {
   const [separatorTimings, setSeparatorTimings] = useState<number[]>([]); // separator 간격 저장
   const [playbackMode, setPlaybackMode] = useState<'fixed' | 'original' | 'adaptive'>('fixed'); // 재생 모드
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0); // 재생 속도 배율
-  const [replayCount, setReplayCount] = useState(0); // 재생 횟수 추적
-  const [navigationIndex, setNavigationIndex] = useState(0); // 네비게이션 인덱스
   const [wordSequence, setWordSequence] = useState<BraillePattern[][]>([]); // 단어별 점자 시퀀스
   const [currentWordIndex, setCurrentWordIndex] = useState(0); // 현재 단어 인덱스
   const [isPlayingWord, setIsPlayingWord] = useState(false); // 단어 재생 상태
@@ -239,8 +237,7 @@ function App() {
   const replayBrailleSequence = () => {
     if (brailleSequence.length === 0) return;
     
-    setReplayCount(prev => prev + 1);
-    addLog('info', `다시듣기 시작 (${replayCount + 1}번째)`, { replayCount: replayCount + 1 });
+    addLog('info', '다시듣기 시작');
     
     // 기존 재생 중지
     if (isPlayingSequence) {
@@ -257,8 +254,7 @@ function App() {
   const replayCurrentSentence = () => {
     if (currentSentenceSequence.length === 0) return;
     
-    setReplayCount(prev => prev + 1);
-    addLog('info', `현재 문장 다시듣기 시작 (${replayCount + 1}번째)`, { replayCount: replayCount + 1 });
+    addLog('info', '현재 문장 다시듣기 시작');
     
     // 기존 재생 중지
     if (isPlayingCurrentSentence) {
