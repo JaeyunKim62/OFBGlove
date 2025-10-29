@@ -13,6 +13,7 @@ class TCPBrailleServer extends EventEmitter {
     this.port = port;
     this.server = null;
     this.clients = new Set();
+    this.blockedClients = new Set(); // 차단된 클라이언트 주소 저장
     this.brailleDots = [false, false, false, false, false, false];
     this.currentSettings = {
       speed: 1,
@@ -81,7 +82,7 @@ class TCPBrailleServer extends EventEmitter {
               this.brailleDots[dotIndex] = true;
               const logMessage = `점 터치: ${dotIndex + 1}번 점 활성화`;
               console.log(`👆 ${logMessage}`);
-              this.broadcastLog('info', logMessage, { dotIndex, action: 'touch' });
+              // 단일 브로드캐스트만 수행
               this.broadcastBrailleUpdate();
             }
           }
@@ -94,7 +95,7 @@ class TCPBrailleServer extends EventEmitter {
               this.brailleDots[dotIndex] = false;
               const logMessage = `점 릴리즈: ${dotIndex + 1}번 점 비활성화`;
               console.log(`👆 ${logMessage}`);
-              this.broadcastLog('info', logMessage, { dotIndex, action: 'release' });
+              // 단일 브로드캐스트만 수행
               this.broadcastBrailleUpdate();
             }
           }
@@ -112,8 +113,9 @@ class TCPBrailleServer extends EventEmitter {
             const character = this.getBrailleCharacter();
             const logMessage = `패턴 완성: ${pattern} (${character})`;
             console.log(`📝 ${logMessage}`);
-            this.broadcastLog('success', logMessage, { pattern, character, byteValue });
-            this.broadcastBrailleUpdate();
+            
+            // 단일 브로드캐스트만 수행 - 패턴 완성 시에만 로그 전송
+            this.broadcastBrailleUpdate(true);
           }
           break;
 
@@ -121,7 +123,7 @@ class TCPBrailleServer extends EventEmitter {
           this.brailleDots = [false, false, false, false, false, false];
           const clearMessage = "점자 상태 초기화";
           console.log(`🧹 ${clearMessage}`);
-          this.broadcastLog('info', clearMessage, { action: 'clear' });
+          // 단일 브로드캐스트만 수행
           this.broadcastBrailleUpdate();
           break;
 
@@ -205,7 +207,7 @@ class TCPBrailleServer extends EventEmitter {
   }
 
   // 점자 상태 업데이트 브로드캐스트
-  broadcastBrailleUpdate() {
+  broadcastBrailleUpdate(sendLog = false) {
     const pattern = {
       dots: [...this.brailleDots],
       timestamp: Date.now(),
@@ -224,6 +226,7 @@ class TCPBrailleServer extends EventEmitter {
     
     console.log(`📝 점자 패턴 업데이트: ${braillePattern} (${character})`);
     
+    // 패턴 브로드캐스트
     this.broadcastToClients({
       type: "braille_pattern",
       pattern: this.brailleDots,
@@ -231,6 +234,15 @@ class TCPBrailleServer extends EventEmitter {
       character: character,
       timestamp: pattern.timestamp
     });
+    
+    // 로그 브로드캐스트 (요청된 경우에만)
+    if (sendLog && braillePattern !== '000000') {
+      this.broadcastLog('success', `패턴 완성: ${braillePattern} (${character})`, { 
+        pattern: braillePattern, 
+        character, 
+        timestamp: pattern.timestamp 
+      });
+    }
   }
 
   // 모든 클라이언트에 메시지 브로드캐스트
@@ -401,6 +413,47 @@ class TCPBrailleServer extends EventEmitter {
   removeWebSocketClient(ws) {
     this.clients.delete(ws);
     console.log(`📊 WebSocket 클라이언트 제거: ${this.clients.size}개 연결됨`);
+  }
+
+  // 클라이언트 차단
+  blockClient(address) {
+    this.blockedClients.add(address);
+    console.log(`🚫 클라이언트 차단: ${address}`);
+    
+    // 해당 주소의 기존 연결들 강제 종료
+    this.clients.forEach(client => {
+      if (client._socket && client._socket.remoteAddress === address) {
+        console.log(`🔌 차단된 클라이언트 연결 종료: ${address}`);
+        client.close(1000, 'Client blocked by administrator');
+        this.clients.delete(client);
+      }
+    });
+    
+    this.broadcastLog('warning', `클라이언트 차단됨: ${address}`, { 
+      action: 'block_client', 
+      address: address 
+    });
+  }
+
+  // 클라이언트 차단 해제
+  unblockClient(address) {
+    this.blockedClients.delete(address);
+    console.log(`✅ 클라이언트 차단 해제: ${address}`);
+    
+    this.broadcastLog('info', `클라이언트 차단 해제됨: ${address}`, { 
+      action: 'unblock_client', 
+      address: address 
+    });
+  }
+
+  // 클라이언트가 차단되었는지 확인
+  isClientBlocked(address) {
+    return this.blockedClients.has(address);
+  }
+
+  // 차단된 클라이언트 목록 반환
+  getBlockedClients() {
+    return Array.from(this.blockedClients);
   }
 }
 

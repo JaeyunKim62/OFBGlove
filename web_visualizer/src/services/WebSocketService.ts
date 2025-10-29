@@ -29,6 +29,7 @@ export class WebSocketService {
   public onWordSeparator?: () => void;
   public onSentenceSeparator?: () => void;
   public onBrailleSeparator?: () => void;
+  public onBlockedClients?: (clients: string[]) => void;
   public onError?: (error: Event) => void;
   public onClose?: (event: CloseEvent) => void;
 
@@ -119,6 +120,9 @@ export class WebSocketService {
         break;
       case 'braille_separator':
         this.onBrailleSeparator?.();
+        break;
+      case 'blocked_clients':
+        this.onBlockedClients?.(data.clients);
         break;
       default:
         console.log('알 수 없는 메시지 타입:', data.type);

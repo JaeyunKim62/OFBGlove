@@ -341,10 +341,10 @@ function App() {
     
     const playNextBraille = (brailleIndex: number) => {
       if (brailleIndex >= word.length) {
-        // 단어 재생 완료 후 반복
+        // 단어 재생 완료 후 반복 (단어가 1개만 있어도 반복)
         if (autoWordRepeat) {
           setTimeout(() => {
-            playWordRepeat(wordIndex); // 같은 단어 반복
+            playWordRepeat(wordIndex); // 같은 단어 반복 (1개짜리도 계속 반복)
           }, 1000); // 1초 대기 후 반복
         } else {
           setIsPlayingWord(false);
@@ -568,6 +568,33 @@ function App() {
     wsServiceRef.current = new WebSocketService();
     
     wsServiceRef.current.onBraillePattern = (pattern) => {
+      // 공백 패턴(000000)은 단어 구분자로 처리
+      if (pattern.binary === '000000') {
+        console.log('📝 공백 패턴을 단어 구분자로 처리');
+        
+        const separatorItem = {
+          type: 'word_separator',
+          id: `word-sep-${Date.now()}`,
+          timestamp: Date.now()
+        };
+        
+        setSequenceWithSeparators(prev => [...prev, separatorItem]);
+        addLog('info', '단어 구분자 (공백)', { pattern: '000000' });
+        return;
+      }
+      
+      // 중복 수신 체크: 같은 패턴이 매우 짧은 시간 내에 두 번 연속으로 오는지 확인
+      // 타임스탬프 기준으로 정확히 동일한 패턴만 필터링 (50ms 이내)
+      const lastPattern = brailleSequence[brailleSequence.length - 1];
+      const timeDiff = pattern.timestamp - (lastPattern?.timestamp || 0);
+      if (lastPattern && 
+          lastPattern.binary === pattern.binary && 
+          lastPattern.character === pattern.character &&
+          timeDiff < 50 && timeDiff > 0) {
+        console.log('⚠️ 중복 패턴 감지 및 무시:', pattern.character);
+        return;
+      }
+      
       // 실시간 입력이 들어오면 기존 재생 중지
       if (isPlayingSequence) {
         console.log('🛑 실시간 입력으로 인한 전체 시퀀스 재생 중지');
@@ -1058,7 +1085,7 @@ function App() {
               </button>
             </div>
             <div className="modal-body">
-              <ConnectionInfo />
+              <ConnectionInfo wsService={wsServiceRef.current} />
             </div>
           </div>
         </div>

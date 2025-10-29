@@ -5,45 +5,40 @@ import './ConnectionInfo.css';
 
 interface ConnectionInfoProps {
   onIPDetected?: (ip: string) => void;
+  wsService?: WebSocketService | null; // App.tsx에서 전달받은 WebSocket 서비스
 }
 
-export const ConnectionInfo: React.FC<ConnectionInfoProps> = ({ onIPDetected }) => {
+export const ConnectionInfo: React.FC<ConnectionInfoProps> = ({ onIPDetected, wsService }) => {
   const [localIP, setLocalIP] = useState<string>('');
   const [isDetecting, setIsDetecting] = useState(false);
   const [error, setError] = useState<string>('');
   const [clients, setClients] = useState<ClientInfo[]>([]);
-  const [wsService, setWsService] = useState<WebSocketService | null>(null);
+  const [blockedClients, setBlockedClients] = useState<string[]>([]);
 
   useEffect(() => {
     detectIP();
-    initializeWebSocket();
     
-    // 컴포넌트 언마운트 시 WebSocket 연결 정리
-    return () => {
-      if (wsService) {
-        wsService.disconnect();
-      }
-    };
-  }, []);
-
-  const initializeWebSocket = () => {
-    const service = new WebSocketService(); // 기본 URL 사용 (172.20.100.102:8888)
-    
-    service.onClients = (clientList) => {
-      setClients(clientList);
-    };
-    
-    service.onClientsUpdated = (clientList) => {
-      setClients(clientList);
-    };
-    
-    service.connect().then(() => {
-      setWsService(service);
-      service.requestClients();
-    }).catch((error) => {
-      console.error('WebSocket 연결 실패:', error);
-    });
-  };
+    // App.tsx의 WebSocket 서비스가 준비되면 클라이언트 목록 요청
+    if (wsService) {
+      wsService.onClients = (clientList) => {
+        setClients(clientList);
+      };
+      
+      wsService.onClientsUpdated = (clientList) => {
+        setClients(clientList);
+      };
+      
+      wsService.onBlockedClients = (blockedList) => {
+        setBlockedClients(blockedList);
+      };
+      
+      // 클라이언트 목록과 차단된 클라이언트 목록 요청
+      wsService.requestClients();
+      wsService.send({
+        type: 'get_blocked_clients'
+      });
+    }
+  }, [wsService]);
 
   const detectIP = async () => {
     setIsDetecting(true);
@@ -82,6 +77,34 @@ export const ConnectionInfo: React.FC<ConnectionInfoProps> = ({ onIPDetected }) 
       // QR 코드 생성 (간단한 방법)
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
       window.open(qrUrl, '_blank');
+    }
+  };
+
+  const blockClient = (address: string) => {
+    if (wsService && confirm(`클라이언트 ${address}를 차단하시겠습니까?`)) {
+      wsService.send({
+        type: 'block_client',
+        address: address
+      });
+      console.log(`🚫 클라이언트 차단 요청: ${address}`);
+    }
+  };
+
+  const unblockClient = (address: string) => {
+    if (wsService && confirm(`클라이언트 ${address}의 차단을 해제하시겠습니까?`)) {
+      wsService.send({
+        type: 'unblock_client',
+        address: address
+      });
+      console.log(`✅ 클라이언트 차단 해제 요청: ${address}`);
+    }
+  };
+
+  const refreshBlockedClients = () => {
+    if (wsService) {
+      wsService.send({
+        type: 'get_blocked_clients'
+      });
     }
   };
 
@@ -133,6 +156,13 @@ export const ConnectionInfo: React.FC<ConnectionInfoProps> = ({ onIPDetected }) 
                     <div className="client-header">
                       <span className="client-type">{client.type}</span>
                       <span className="client-id">{client.id}</span>
+                      <button 
+                        onClick={() => blockClient(client.address)}
+                        className="block-btn"
+                        title="클라이언트 차단"
+                      >
+                        🚫 차단
+                      </button>
                     </div>
                     <div className="client-details">
                       <div className="client-address">📍 {client.address}</div>
@@ -150,6 +180,38 @@ export const ConnectionInfo: React.FC<ConnectionInfoProps> = ({ onIPDetected }) 
               onClick={() => wsService?.requestClients()} 
               className="refresh-clients-btn"
               title="클라이언트 목록 새로고침"
+            >
+              🔄 새로고침
+            </button>
+          </div>
+
+          {/* 차단된 클라이언트 목록 */}
+          <div className="info-item">
+            <label>차단된 클라이언트 ({blockedClients.length}개):</label>
+            <div className="blocked-clients-list">
+              {blockedClients.length === 0 ? (
+                <div className="no-blocked-clients">차단된 클라이언트가 없습니다</div>
+              ) : (
+                blockedClients.map((address) => (
+                  <div key={address} className="blocked-client-item">
+                    <div className="blocked-client-header">
+                      <span className="blocked-client-address">🚫 {address}</span>
+                      <button 
+                        onClick={() => unblockClient(address)}
+                        className="unblock-btn"
+                        title="차단 해제"
+                      >
+                        ✅ 해제
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <button 
+              onClick={refreshBlockedClients} 
+              className="refresh-blocked-btn"
+              title="차단된 클라이언트 목록 새로고침"
             >
               🔄 새로고침
             </button>
