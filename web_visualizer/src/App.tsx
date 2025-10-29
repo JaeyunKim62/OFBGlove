@@ -610,6 +610,15 @@ function App() {
           
           console.log('📝 공백 패턴을 단어 구분자로 처리 (000000 점자로 표시)');
           
+          // 현재 문장 시퀀스에도 추가
+          setCurrentSentenceSequence(sequencePrev => {
+            const lastPattern = sequencePrev[sequencePrev.length - 1];
+            if (lastPattern && lastPattern.binary === '000000') {
+              return sequencePrev; // 중복이면 상태 변경 없음
+            }
+            return [...sequencePrev, pattern];
+          });
+          
           // sequenceWithSeparators에도 중복 체크 후 추가
           setSequenceWithSeparators(sequencePrev => {
             const lastItem = sequencePrev[sequencePrev.length - 1];
@@ -713,28 +722,31 @@ function App() {
       // 단어 구분자를 000000 점자 패턴으로 변환
       const spacePattern = createSpacePattern('esp32');
       
-      // 중복 체크: ref를 사용하여 동기적으로 마지막 패턴 확인 (타임스탬프 무관)
-      const lastPattern = lastPatternRef.current;
-      
-      // 마지막 패턴이 이미 공백(000000)이면 중복으로 판단
-      if (lastPattern && lastPattern.binary === '000000') {
-        console.log('⚠️ 단어 구분자 중복 감지 및 무시 (마지막 패턴이 공백):', lastPattern);
-        return; // 중복이면 즉시 반환
-      }
-      
       console.log('✅ 단어 구분자 추가 중 - 공백 패턴:', spacePattern);
       
-      // 중복이 아니면 ref 업데이트
+      // 현재 문장 시퀀스에 중복 체크하고 추가
+      setCurrentSentenceSequence(prev => {
+        const lastPattern = prev[prev.length - 1];
+        // 마지막 패턴이 이미 공백이면 중복
+        if (lastPattern && lastPattern.binary === '000000') {
+          console.log('⚠️ currentSentenceSequence에서 단어 구분자 중복 감지:', lastPattern);
+          return prev; // 중복이면 상태 변경 없음
+        }
+        console.log('✅ currentSentenceSequence에 단어 구분자 추가, 현재 길이:', prev.length, '→', prev.length + 1);
+        return [...prev, spacePattern];
+      });
+      
+      // ref 업데이트
       lastPatternRef.current = {
         binary: spacePattern.binary || '',
         character: spacePattern.character || '',
         source: spacePattern.source || 'esp32'
       };
       
-      // 상태 업데이트
+      // brailleSequence에도 추가
       setBrailleSequence(prev => [...prev, spacePattern]);
       
-      // sequenceWithSeparators에도 추가 (중복 체크는 이미 위에서 처리됨)
+      // sequenceWithSeparators에도 추가
       setSequenceWithSeparators(prev => {
         const lastItem = prev[prev.length - 1];
         // 마지막 항목이 이미 공백이면 중복
@@ -746,7 +758,7 @@ function App() {
         return [...prev, { type: 'braille', pattern: spacePattern }];
       });
       
-      // dataCollector에 추가 (한 번만)
+      // dataCollector에 추가
       dataCollectorRef.current?.addPattern(spacePattern);
       addLog('info', '단어 구분자 수신 (000000)', { pattern: '000000' });
     };
@@ -772,6 +784,18 @@ function App() {
         
         // 상태 업데이트
         setBrailleSequence(prev => [...prev, spacePattern]);
+        
+        // 현재 문장 시퀀스에도 추가
+        setCurrentSentenceSequence(prev => {
+          const lastPattern = prev[prev.length - 1];
+          // 마지막 패턴이 이미 공백이면 중복
+          if (lastPattern && lastPattern.binary === '000000') {
+            console.log('⚠️ currentSentenceSequence에서 문장 구분자 중복 감지');
+            return prev; // 중복이면 상태 변경 없음
+          }
+          console.log('✅ currentSentenceSequence에 문장 구분자 추가');
+          return [...prev, spacePattern];
+        });
         
         // sequenceWithSeparators에도 추가
         setSequenceWithSeparators(prev => {
@@ -1043,7 +1067,7 @@ function App() {
                         className={`sentence-character-item ${isCurrent ? 'current-braille' : ''} source-${pattern.source}`}
                         title={`${pattern.source === 'esp32' ? 'WiFi 외부 입력' : pattern.source === 'web' ? '웹 직접 입력' : '데모'} - ${pattern.binary}`}
                       >
-                        {pattern.character || '?'}
+                        {pattern.binary === '000000' ? '공백' : (pattern.character || '?')}
                       </span>
                     );
                   })}
@@ -1180,7 +1204,7 @@ function App() {
                   <h4>현재 패턴</h4>
                   <div className="pattern-info">
                     <div className="pattern-character">
-                      {braillePattern.character || '?'}
+                      {braillePattern.binary === '000000' ? '공백' : (braillePattern.character || '?')}
                     </div>
                     <div className="pattern-source">
                       소스: {braillePattern.source}
