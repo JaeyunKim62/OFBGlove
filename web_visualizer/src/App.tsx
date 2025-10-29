@@ -61,6 +61,7 @@ function App() {
   const sequenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastBrailleTimeRef = useRef<number>(0); // 마지막 점자 수신 시간
   const isRealTimeInputRef = useRef<boolean>(false); // 실시간 입력 상태 추적
+  const lastPatternRef = useRef<{ binary: string; character: string; source: string } | null>(null); // 마지막 패턴 (중복 체크용)
 
   // 로그 추가 함수
   const addLog = (type: LogEntry['type'], message: string, data?: any) => {
@@ -485,6 +486,24 @@ function App() {
     return brailleMap[binary] || "?";
   };
 
+  // 000000 패턴 객체 생성 함수 (구분자용)
+  const createSpacePattern = (source: 'esp32' | 'web' | 'demo' = 'esp32'): BraillePattern => {
+    return {
+      dots: [
+        { id: 1, isActive: false },
+        { id: 2, isActive: false },
+        { id: 3, isActive: false },
+        { id: 4, isActive: false },
+        { id: 5, isActive: false },
+        { id: 6, isActive: false }
+      ],
+      timestamp: Date.now(),
+      source: source,
+      character: ' ',
+      binary: '000000'
+    };
+  };
+
   // 입력 모드 토글
   const toggleInputMode = () => {
     setIsInputMode(!isInputMode);
@@ -558,42 +577,90 @@ function App() {
   };
 
   useEffect(() => {
+    console.log('🔄 useEffect 실행 - WebSocket 초기화 시작');
+    
     // 데이터 수집기 초기화
     dataCollectorRef.current = new DataCollector((newData) => {
       setData(newData);
       setStatistics(dataCollectorRef.current?.getStatistics() || null);
     });
 
+    // WebSocket 서비스가 이미 존재하면 재생성하지 않음
+    if (wsServiceRef.current) {
+      console.log('⚠️ WebSocket 서비스가 이미 존재함 - 스킵');
+      return;
+    }
+
     // WebSocket 서비스 초기화
+    console.log('✅ 새로운 WebSocket 서비스 생성');
     wsServiceRef.current = new WebSocketService();
     
     wsServiceRef.current.onBraillePattern = (pattern) => {
-      // 공백 패턴(000000)은 단어 구분자로 처리
+      console.log(`🎯 onBraillePattern 핸들러 호출: ${pattern.character} (${pattern.binary}) at ${new Date().toISOString()}`);
+      
+      // 공백 패턴(000000)은 단어 구분자로 처리 - 000000 점자 패턴으로 표시
       if (pattern.binary === '000000') {
-        console.log('📝 공백 패턴을 단어 구분자로 처리');
-        
-        const separatorItem = {
-          type: 'word_separator',
-          id: `word-sep-${Date.now()}`,
-          timestamp: Date.now()
-        };
-        
-        setSequenceWithSeparators(prev => [...prev, separatorItem]);
-        addLog('info', '단어 구분자 (공백)', { pattern: '000000' });
+        // 중복 체크: 함수형 업데이트를 사용하여 이전 상태 확인
+        setBrailleSequence(prev => {
+          const lastPattern = prev[prev.length - 1];
+          if (lastPattern && lastPattern.binary === '000000') {
+            console.log('⚠️ 공백 패턴 중복 감지 및 무시');
+            return prev; // 상태 변경 없음
+          }
+          
+          console.log('📝 공백 패턴을 단어 구분자로 처리 (000000 점자로 표시)');
+          
+          // sequenceWithSeparators에도 중복 체크 후 추가
+          setSequenceWithSeparators(sequencePrev => {
+            const lastItem = sequencePrev[sequencePrev.length - 1];
+            if (lastItem && lastItem.type === 'braille' && lastItem.pattern.binary === '000000') {
+              return sequencePrev; // 중복이면 상태 변경 없음
+            }
+            return [...sequencePrev, { type: 'braille', pattern }];
+          });
+          
+          addLog('info', '단어 구분자 (공백)', { pattern: '000000' });
+          return [...prev, pattern];
+        });
         return;
       }
       
-      // 중복 수신 체크: 같은 패턴이 매우 짧은 시간 내에 두 번 연속으로 오는지 확인
-      // 타임스탬프 기준으로 정확히 동일한 패턴만 필터링 (50ms 이내)
-      const lastPattern = brailleSequence[brailleSequence.length - 1];
-      const timeDiff = pattern.timestamp - (lastPattern?.timestamp || 0);
+      // 중복 수신 체크: ref를 사용하여 동기적으로 마지막 패턴 확인 (타임스탬프 무관)
+      const lastPattern = lastPatternRef.current;
+      
+      // 마지막 패턴과 정확히 동일한 패턴이면 중복으로 판단
       if (lastPattern && 
           lastPattern.binary === pattern.binary && 
           lastPattern.character === pattern.character &&
-          timeDiff < 50 && timeDiff > 0) {
-        console.log('⚠️ 중복 패턴 감지 및 무시:', pattern.character);
-        return;
+          lastPattern.source === pattern.source) {
+        console.log('⚠️ 중복 패턴 감지 및 무시 (마지막 패턴과 동일):', pattern.character, pattern.binary);
+        return; // 중복이면 즉시 반환
       }
+      
+      // 중복이 아니면 ref 업데이트
+      lastPatternRef.current = {
+        binary: pattern.binary || '',
+        character: pattern.character || '',
+        source: pattern.source || 'esp32'
+      };
+      
+      // 상태 업데이트
+      setBrailleSequence(prev => [...prev, pattern]);
+      
+      // 중복이 아니면 sequenceWithSeparators에도 추가
+      setSequenceWithSeparators(sequencePrev => {
+        const lastItem = sequencePrev[sequencePrev.length - 1];
+        // 마지막 항목과 정확히 동일한 패턴인지 확인
+        if (lastItem && lastItem.type === 'braille') {
+          if (lastItem.pattern.binary === pattern.binary && 
+              lastItem.pattern.character === pattern.character &&
+              lastItem.pattern.source === pattern.source) {
+            console.log('⚠️ sequenceWithSeparators에서 중복 패턴 감지 및 무시:', pattern.character, pattern.binary);
+            return sequencePrev; // 상태 변경 없음
+          }
+        }
+        return [...sequencePrev, { type: 'braille', pattern }];
+      });
       
       // 실시간 입력이 들어오면 기존 재생 중지
       if (isPlayingSequence) {
@@ -608,10 +675,7 @@ function App() {
       // 현재 문장 시퀀스에 추가
       setCurrentSentenceSequence(prev => [...prev, pattern]);
       
-      // 전체 시퀀스에도 추가
-      setBrailleSequence(prev => [...prev, pattern]);
-      setSequenceWithSeparators(prev => [...prev, { type: 'braille', pattern }]);
-      
+      // dataCollector와 로그는 한 번만 실행 (중복이 아닌 경우만)
       dataCollectorRef.current?.addPattern(pattern);
       addLog('info', `점자 패턴 수신: ${pattern.binary} (${pattern.character})`, pattern);
       
@@ -641,26 +705,87 @@ function App() {
       addLog(log.type, log.message, log.data);
     };
 
-  // 구분자 메시지 처리 (개선된 버전)
-  wsServiceRef.current.onWordSeparator = () => {
-    const separatorItem = { 
-      type: 'word_separator', 
-      content: ' ', 
-      timestamp: Date.now(),
-      id: `word_sep_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    // 구분자 메시지 처리 (개선된 버전)
+    console.log('🔧 onWordSeparator 핸들러 등록됨');
+    wsServiceRef.current.onWordSeparator = () => {
+      console.log('📝 onWordSeparator 호출됨 - 단어 구분자 처리 시작');
+    
+      // 단어 구분자를 000000 점자 패턴으로 변환
+      const spacePattern = createSpacePattern('esp32');
+      
+      // 중복 체크: ref를 사용하여 동기적으로 마지막 패턴 확인 (타임스탬프 무관)
+      const lastPattern = lastPatternRef.current;
+      
+      // 마지막 패턴이 이미 공백(000000)이면 중복으로 판단
+      if (lastPattern && lastPattern.binary === '000000') {
+        console.log('⚠️ 단어 구분자 중복 감지 및 무시 (마지막 패턴이 공백):', lastPattern);
+        return; // 중복이면 즉시 반환
+      }
+      
+      console.log('✅ 단어 구분자 추가 중 - 공백 패턴:', spacePattern);
+      
+      // 중복이 아니면 ref 업데이트
+      lastPatternRef.current = {
+        binary: spacePattern.binary || '',
+        character: spacePattern.character || '',
+        source: spacePattern.source || 'esp32'
+      };
+      
+      // 상태 업데이트
+      setBrailleSequence(prev => [...prev, spacePattern]);
+      
+      // sequenceWithSeparators에도 추가 (중복 체크는 이미 위에서 처리됨)
+      setSequenceWithSeparators(prev => {
+        const lastItem = prev[prev.length - 1];
+        // 마지막 항목이 이미 공백이면 중복
+        if (lastItem && lastItem.type === 'braille' && lastItem.pattern.binary === '000000') {
+          console.log('⚠️ sequenceWithSeparators에서 단어 구분자 중복 감지');
+          return prev; // 중복이면 상태 변경 없음
+        }
+        console.log('✅ sequenceWithSeparators에 단어 구분자 추가');
+        return [...prev, { type: 'braille', pattern: spacePattern }];
+      });
+      
+      // dataCollector에 추가 (한 번만)
+      dataCollectorRef.current?.addPattern(spacePattern);
+      addLog('info', '단어 구분자 수신 (000000)', { pattern: '000000' });
     };
-    setSequenceWithSeparators(prev => [...prev, separatorItem]);
-    addLog('info', '단어 구분자 수신', { type: 'word_separator' });
-  };
 
     wsServiceRef.current.onSentenceSeparator = () => {
-      const separatorItem = { 
-        type: 'sentence_separator', 
-        content: '\n', 
-        timestamp: Date.now(),
-        id: `sentence_sep_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      };
-      setSequenceWithSeparators(prev => [...prev, separatorItem]);
+      // 문장 구분자도 000000 점자 패턴으로 변환
+      const spacePattern = createSpacePattern('esp32');
+      
+      // 중복 체크: ref를 사용하여 동기적으로 마지막 패턴 확인
+      const lastPattern = lastPatternRef.current;
+      
+      // 마지막 패턴이 이미 공백(000000)이면 중복으로 판단
+      if (lastPattern && lastPattern.binary === '000000') {
+        console.log('⚠️ 문장 구분자 중복 감지 및 무시 (마지막 패턴이 공백):', lastPattern);
+        // 중복이지만 문장 구분자이므로 단어 분할은 진행
+      } else {
+        // 중복이 아니면 ref 업데이트
+        lastPatternRef.current = {
+          binary: spacePattern.binary || '',
+          character: spacePattern.character || '',
+          source: spacePattern.source || 'esp32'
+        };
+        
+        // 상태 업데이트
+        setBrailleSequence(prev => [...prev, spacePattern]);
+        
+        // sequenceWithSeparators에도 추가
+        setSequenceWithSeparators(prev => {
+          const lastItem = prev[prev.length - 1];
+          // 마지막 항목이 이미 공백이면 중복
+          if (lastItem && lastItem.type === 'braille' && lastItem.pattern.binary === '000000') {
+            return prev; // 중복이면 상태 변경 없음
+          }
+          return [...prev, { type: 'braille', pattern: spacePattern }];
+        });
+        
+        // dataCollector에 추가
+        dataCollectorRef.current?.addPattern(spacePattern);
+      }
       
       // 문장 구분자 수신 시 현재 문장을 단어별로 분할하고 첫 번째 단어 반복 재생
       if (currentSentenceSequence.length > 0) {
@@ -1177,47 +1302,20 @@ function App() {
                   <div className="no-sequence">입력된 점자 시퀀스가 없습니다.</div>
                 ) : (
                   <div className="sequence-display">
-                    {/* 문자 라인 */}
+                    {/* 문자 라인 - 모든 항목을 점자 패턴으로 표시 (구분자는 000000으로) */}
                     <div className="character-line">
                       {sequenceWithSeparators.map((item, index) => {
                         if (item.type === 'braille') {
                           const brailleIndex = brailleSequence.findIndex(p => p.timestamp === item.pattern.timestamp);
                           const isCurrent = isPlayingSequence && brailleIndex === currentBrailleIndex;
+                          const isSpace = item.pattern.binary === '000000';
                           return (
                             <span 
                               key={`char-${item.pattern.timestamp}-${index}`} 
-                              className={`character-item ${isCurrent ? 'current-braille' : ''} source-${item.pattern.source}`}
-                              title={`${item.pattern.source === 'esp32' ? 'WiFi 외부 입력' : item.pattern.source === 'web' ? '웹 직접 입력' : '데모'} - ${item.pattern.binary}`}
+                              className={`character-item ${isCurrent ? 'current-braille' : ''} ${isSpace ? 'space-character' : ''} source-${item.pattern.source}`}
+                              title={`${item.pattern.source === 'esp32' ? 'WiFi 외부 입력' : item.pattern.source === 'web' ? '웹 직접 입력' : '데모'} - ${item.pattern.binary}${isSpace ? ' (공백)' : ''}`}
                             >
                               {item.pattern.character || '?'}
-                            </span>
-                          );
-                        } else if (item.type === 'word_separator') {
-                          return (
-                            <span 
-                              key={item.id || `word-sep-${index}`} 
-                              className="separator-item word-separator"
-                              title="단어 구분자"
-                            >
-                              [단어]
-                            </span>
-                          );
-                        } else if (item.type === 'sentence_separator') {
-                          return (
-                            <br 
-                              key={item.id || `sentence-sep-${index}`} 
-                              className="sentence-separator"
-                              title="문장 구분자"
-                            />
-                          );
-                        } else if (item.type === 'braille_separator') {
-                          return (
-                            <span 
-                              key={item.id || `braille-sep-${index}`} 
-                              className="separator-item braille-separator"
-                              title={`점자 구분자 (간격: ${item.interval}ms)`}
-                            >
-                              [점자]
                             </span>
                           );
                         }
@@ -1225,17 +1323,18 @@ function App() {
                       })}
                     </div>
                     
-                    {/* 점자 패턴 라인 */}
+                    {/* 점자 패턴 라인 - 모든 항목을 점자 패턴으로 표시 (구분자는 000000으로) */}
                     <div className="braille-line">
                       {sequenceWithSeparators.map((item, index) => {
                         if (item.type === 'braille') {
                           const brailleIndex = brailleSequence.findIndex(p => p.timestamp === item.pattern.timestamp);
                           const isCurrent = isPlayingSequence && brailleIndex === currentBrailleIndex;
+                          const isSpace = item.pattern.binary === '000000';
                           return (
                             <div 
                               key={`braille-${item.pattern.timestamp}-${index}`} 
-                              className={`braille-item ${isCurrent ? 'current-braille' : ''} source-${item.pattern.source}`}
-                              title={`${item.pattern.source === 'esp32' ? 'WiFi 외부 입력' : item.pattern.source === 'web' ? '웹 직접 입력' : '데모'} - ${item.pattern.binary}`}
+                              className={`braille-item ${isCurrent ? 'current-braille' : ''} ${isSpace ? 'space-braille' : ''} source-${item.pattern.source}`}
+                              title={`${item.pattern.source === 'esp32' ? 'WiFi 외부 입력' : item.pattern.source === 'web' ? '웹 직접 입력' : '데모'} - ${item.pattern.binary}${isSpace ? ' (공백)' : ''}`}
                             >
                               <BrailleCell 
                                 dots={item.pattern.dots}
@@ -1243,34 +1342,6 @@ function App() {
                                 showLabels={false}
                               />
                             </div>
-                          );
-                        } else if (item.type === 'word_separator') {
-                          return (
-                            <span 
-                              key={item.id || `word-sep-${index}`} 
-                              className="separator-item word-separator"
-                              title="단어 구분자"
-                            >
-                              [단어]
-                            </span>
-                          );
-                        } else if (item.type === 'sentence_separator') {
-                          return (
-                            <br 
-                              key={item.id || `sentence-sep-${index}`} 
-                              className="sentence-separator"
-                              title="문장 구분자"
-                            />
-                          );
-                        } else if (item.type === 'braille_separator') {
-                          return (
-                            <span 
-                              key={item.id || `braille-sep-${index}`} 
-                              className="separator-item braille-separator"
-                              title={`점자 구분자 (간격: ${item.interval}ms)`}
-                            >
-                              [점자]
-                            </span>
                           );
                         }
                         return null;

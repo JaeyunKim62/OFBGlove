@@ -584,6 +584,20 @@
   color: #388e3c;
 }
 
+/* 공백 문자 스타일 */
+.character-item.space-character {
+  background: #fff9c4;
+  border-color: #fbc02d;
+  color: #f57f17;
+  font-weight: normal;
+  opacity: 0.8;
+}
+
+.braille-item.space-braille {
+  opacity: 0.6;
+  border-style: dashed;
+}
+
 .braille-line {
   display: flex;
   gap: 4px;
