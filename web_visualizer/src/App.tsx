@@ -59,6 +59,8 @@ function App() {
   const dataCollectorRef = useRef<DataCollector | null>(null);
   const displayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const sequenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const wordTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 단어 재생 타이머
+  const wordRepeatTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 단어 반복 타이머
   const lastBrailleTimeRef = useRef<number>(0); // 마지막 점자 수신 시간
   const isRealTimeInputRef = useRef<boolean>(false); // 실시간 입력 상태 추적
   const lastPatternRef = useRef<{ binary: string; character: string; source: string } | null>(null); // 마지막 패턴 (중복 체크용)
@@ -279,47 +281,29 @@ function App() {
     addLog('info', `구분자 최적화 설정 변경: ${key} = ${value}`, { key, value });
   };
 
-  // 문장을 단어별로 분할하는 함수 (구분자 정보 활용)
+  // 문장을 단어별로 분할하는 함수 (000000 패턴을 단어 구분자로 사용)
   const splitSentenceIntoWords = (sentence: BraillePattern[]) => {
     const words: BraillePattern[][] = [];
     let currentWord: BraillePattern[] = [];
     
-    // sequenceWithSeparators에서 해당 문장의 구분자 정보 찾기
-    const sentenceStartIndex = brailleSequence.findIndex(p => p.timestamp === sentence[0]?.timestamp);
-    const sentenceEndIndex = sentenceStartIndex + sentence.length;
-    
-    // 해당 범위의 구분자 정보 추출
-    const relevantSeparators = sequenceWithSeparators.slice(sentenceStartIndex, sentenceEndIndex);
-    
-    let wordStartIndex = 0;
-    
-    for (let i = 0; i < relevantSeparators.length; i++) {
-      const item = relevantSeparators[i];
+    for (let i = 0; i < sentence.length; i++) {
+      const pattern = sentence[i];
       
-      if (item.type === 'braille') {
-        // 점자 패턴이면 현재 단어에 추가
-        const patternIndex = sentenceStartIndex + i - wordStartIndex;
-        if (patternIndex < sentence.length) {
-          currentWord.push(sentence[patternIndex]);
-        }
-      } else if (item.type === 'word_separator') {
-        // 단어 구분자면 현재 단어를 완성하고 새 단어 시작
+      if (pattern.binary === '000000') {
+        // 공백 패턴이면 현재 단어를 완성하고 새 단어 시작
         if (currentWord.length > 0) {
           words.push([...currentWord]);
           currentWord = [];
         }
-      } else if (item.type === 'sentence_separator') {
-        // 문장 구분자면 현재 단어를 완성하고 종료
-        if (currentWord.length > 0) {
-          words.push([...currentWord]);
-        }
-        break;
+      } else {
+        // 일반 패턴이면 현재 단어에 추가
+        currentWord.push(pattern);
       }
     }
     
-    // 마지막 단어 처리
+    // 마지막 단어 추가 (공백으로 끝나지 않은 경우)
     if (currentWord.length > 0) {
-      words.push(currentWord);
+      words.push([...currentWord]);
     }
     
     // 구분자 정보가 없으면 전체 문장을 하나의 단어로 처리
@@ -334,6 +318,16 @@ function App() {
   const playWordRepeat = (wordIndex: number) => {
     if (wordSequence.length === 0 || wordIndex >= wordSequence.length) return;
     
+    // 기존 타이머 정리
+    if (wordTimeoutRef.current) {
+      clearTimeout(wordTimeoutRef.current);
+      wordTimeoutRef.current = null;
+    }
+    if (wordRepeatTimeoutRef.current) {
+      clearTimeout(wordRepeatTimeoutRef.current);
+      wordRepeatTimeoutRef.current = null;
+    }
+    
     const word = wordSequence[wordIndex];
     if (word.length === 0) return;
     
@@ -344,7 +338,7 @@ function App() {
       if (brailleIndex >= word.length) {
         // 단어 재생 완료 후 반복 (단어가 1개만 있어도 반복)
         if (autoWordRepeat) {
-          setTimeout(() => {
+          wordRepeatTimeoutRef.current = setTimeout(() => {
             playWordRepeat(wordIndex); // 같은 단어 반복 (1개짜리도 계속 반복)
           }, 1000); // 1초 대기 후 반복
         } else {
@@ -359,7 +353,7 @@ function App() {
       // 다음 점자로 이동 (단어 내에서의 간격)
       const nextInterval = Math.max(200, brailleInterval / playbackSpeed);
       
-      setTimeout(() => {
+      wordTimeoutRef.current = setTimeout(() => {
         playNextBraille(brailleIndex + 1);
       }, nextInterval);
     };
@@ -375,6 +369,16 @@ function App() {
   // 다음 단어로 이동
   const navigateToNextWord = () => {
     if (wordSequence.length === 0) return;
+    
+    // 기존 타이머 정리
+    if (wordTimeoutRef.current) {
+      clearTimeout(wordTimeoutRef.current);
+      wordTimeoutRef.current = null;
+    }
+    if (wordRepeatTimeoutRef.current) {
+      clearTimeout(wordRepeatTimeoutRef.current);
+      wordRepeatTimeoutRef.current = null;
+    }
     
     const nextWordIndex = Math.min(wordSequence.length - 1, currentWordIndex + 1);
     setCurrentWordIndex(nextWordIndex);
@@ -394,6 +398,16 @@ function App() {
   const navigateToPreviousWord = () => {
     if (wordSequence.length === 0) return;
     
+    // 기존 타이머 정리
+    if (wordTimeoutRef.current) {
+      clearTimeout(wordTimeoutRef.current);
+      wordTimeoutRef.current = null;
+    }
+    if (wordRepeatTimeoutRef.current) {
+      clearTimeout(wordRepeatTimeoutRef.current);
+      wordRepeatTimeoutRef.current = null;
+    }
+    
     const prevWordIndex = Math.max(0, currentWordIndex - 1);
     setCurrentWordIndex(prevWordIndex);
     
@@ -410,6 +424,16 @@ function App() {
 
   // 단어 재생 중지
   const stopWordPlayback = () => {
+    // 타이머 정리
+    if (wordTimeoutRef.current) {
+      clearTimeout(wordTimeoutRef.current);
+      wordTimeoutRef.current = null;
+    }
+    if (wordRepeatTimeoutRef.current) {
+      clearTimeout(wordRepeatTimeoutRef.current);
+      wordRepeatTimeoutRef.current = null;
+    }
+    
     setIsPlayingWord(false);
     addLog('info', '단어 재생 중지');
   };
@@ -600,37 +624,58 @@ function App() {
       
       // 공백 패턴(000000)은 단어 구분자로 처리 - 000000 점자 패턴으로 표시
       if (pattern.binary === '000000') {
-        // 중복 체크: 함수형 업데이트를 사용하여 이전 상태 확인
+        // 중복 체크: ref를 사용하여 동기적으로 마지막 패턴 확인
+        const lastPattern = lastPatternRef.current;
+        if (lastPattern && lastPattern.binary === '000000') {
+          console.log('⚠️ 공백 패턴 중복 감지 및 무시 (lastPatternRef 기준)');
+          return; // 중복이면 즉시 반환
+        }
+        
+        console.log('📝 공백 패턴을 단어 구분자로 처리 (000000 점자로 표시)');
+        
+        // ref 업데이트
+        lastPatternRef.current = {
+          binary: pattern.binary || '',
+          character: pattern.character || '',
+          source: pattern.source || 'esp32'
+        };
+        
+        // 현재 문장 시퀀스에 추가
+        setCurrentSentenceSequence(prev => {
+          const lastPattern = prev[prev.length - 1];
+          if (lastPattern && lastPattern.binary === '000000') {
+            console.log('⚠️ currentSentenceSequence에서 공백 패턴 중복 감지');
+            return prev; // 중복이면 상태 변경 없음
+          }
+          console.log('✅ currentSentenceSequence에 공백 패턴 추가');
+          return [...prev, pattern];
+        });
+        
+        // brailleSequence에 추가
         setBrailleSequence(prev => {
           const lastPattern = prev[prev.length - 1];
           if (lastPattern && lastPattern.binary === '000000') {
-            console.log('⚠️ 공백 패턴 중복 감지 및 무시');
-            return prev; // 상태 변경 없음
+            console.log('⚠️ brailleSequence에서 공백 패턴 중복 감지');
+            return prev; // 중복이면 상태 변경 없음
           }
-          
-          console.log('📝 공백 패턴을 단어 구분자로 처리 (000000 점자로 표시)');
-          
-          // 현재 문장 시퀀스에도 추가
-          setCurrentSentenceSequence(sequencePrev => {
-            const lastPattern = sequencePrev[sequencePrev.length - 1];
-            if (lastPattern && lastPattern.binary === '000000') {
-              return sequencePrev; // 중복이면 상태 변경 없음
-            }
-            return [...sequencePrev, pattern];
-          });
-          
-          // sequenceWithSeparators에도 중복 체크 후 추가
-          setSequenceWithSeparators(sequencePrev => {
-            const lastItem = sequencePrev[sequencePrev.length - 1];
-            if (lastItem && lastItem.type === 'braille' && lastItem.pattern.binary === '000000') {
-              return sequencePrev; // 중복이면 상태 변경 없음
-            }
-            return [...sequencePrev, { type: 'braille', pattern }];
-          });
-          
-          addLog('info', '단어 구분자 (공백)', { pattern: '000000' });
+          console.log('✅ brailleSequence에 공백 패턴 추가');
           return [...prev, pattern];
         });
+        
+        // sequenceWithSeparators에도 추가
+        setSequenceWithSeparators(prev => {
+          const lastItem = prev[prev.length - 1];
+          if (lastItem && lastItem.type === 'braille' && lastItem.pattern.binary === '000000') {
+            console.log('⚠️ sequenceWithSeparators에서 공백 패턴 중복 감지');
+            return prev; // 중복이면 상태 변경 없음
+          }
+          console.log('✅ sequenceWithSeparators에 공백 패턴 추가');
+          return [...prev, { type: 'braille', pattern }];
+        });
+        
+        // dataCollector에 추가
+        dataCollectorRef.current?.addPattern(pattern);
+        addLog('info', '단어 구분자 (공백)', { pattern: '000000' });
         return;
       }
       
@@ -767,49 +812,44 @@ function App() {
       // 문장 구분자도 000000 점자 패턴으로 변환
       const spacePattern = createSpacePattern('esp32');
       
-      // 중복 체크: ref를 사용하여 동기적으로 마지막 패턴 확인
-      const lastPattern = lastPatternRef.current;
+      console.log('📝 onSentenceSeparator 호출됨 - 문장 구분자 처리 시작');
       
-      // 마지막 패턴이 이미 공백(000000)이면 중복으로 판단
-      if (lastPattern && lastPattern.binary === '000000') {
-        console.log('⚠️ 문장 구분자 중복 감지 및 무시 (마지막 패턴이 공백):', lastPattern);
-        // 중복이지만 문장 구분자이므로 단어 분할은 진행
-      } else {
-        // 중복이 아니면 ref 업데이트
-        lastPatternRef.current = {
-          binary: spacePattern.binary || '',
-          character: spacePattern.character || '',
-          source: spacePattern.source || 'esp32'
-        };
-        
-        // 상태 업데이트
-        setBrailleSequence(prev => [...prev, spacePattern]);
-        
-        // 현재 문장 시퀀스에도 추가
-        setCurrentSentenceSequence(prev => {
-          const lastPattern = prev[prev.length - 1];
-          // 마지막 패턴이 이미 공백이면 중복
-          if (lastPattern && lastPattern.binary === '000000') {
-            console.log('⚠️ currentSentenceSequence에서 문장 구분자 중복 감지');
-            return prev; // 중복이면 상태 변경 없음
-          }
-          console.log('✅ currentSentenceSequence에 문장 구분자 추가');
-          return [...prev, spacePattern];
-        });
-        
-        // sequenceWithSeparators에도 추가
-        setSequenceWithSeparators(prev => {
-          const lastItem = prev[prev.length - 1];
-          // 마지막 항목이 이미 공백이면 중복
-          if (lastItem && lastItem.type === 'braille' && lastItem.pattern.binary === '000000') {
-            return prev; // 중복이면 상태 변경 없음
-          }
-          return [...prev, { type: 'braille', pattern: spacePattern }];
-        });
-        
-        // dataCollector에 추가
-        dataCollectorRef.current?.addPattern(spacePattern);
-      }
+      // 현재 문장 시퀀스에 중복 체크하고 추가
+      setCurrentSentenceSequence(prev => {
+        const lastPattern = prev[prev.length - 1];
+        // 마지막 패턴이 이미 공백이면 중복
+        if (lastPattern && lastPattern.binary === '000000') {
+          console.log('⚠️ currentSentenceSequence에서 문장 구분자 중복 감지:', lastPattern);
+          return prev; // 중복이면 상태 변경 없음
+        }
+        console.log('✅ currentSentenceSequence에 문장 구분자 추가, 현재 길이:', prev.length, '→', prev.length + 1);
+        return [...prev, spacePattern];
+      });
+      
+      // ref 업데이트
+      lastPatternRef.current = {
+        binary: spacePattern.binary || '',
+        character: spacePattern.character || '',
+        source: spacePattern.source || 'esp32'
+      };
+      
+      // brailleSequence에도 추가
+      setBrailleSequence(prev => [...prev, spacePattern]);
+      
+      // sequenceWithSeparators에도 추가
+      setSequenceWithSeparators(prev => {
+        const lastItem = prev[prev.length - 1];
+        // 마지막 항목이 이미 공백이면 중복
+        if (lastItem && lastItem.type === 'braille' && lastItem.pattern.binary === '000000') {
+          console.log('⚠️ sequenceWithSeparators에서 문장 구분자 중복 감지');
+          return prev; // 중복이면 상태 변경 없음
+        }
+        console.log('✅ sequenceWithSeparators에 문장 구분자 추가');
+        return [...prev, { type: 'braille', pattern: spacePattern }];
+      });
+      
+      // dataCollector에 추가
+      dataCollectorRef.current?.addPattern(spacePattern);
       
       // 문장 구분자 수신 시 현재 문장을 단어별로 분할하고 첫 번째 단어 반복 재생
       if (currentSentenceSequence.length > 0) {
@@ -862,6 +902,12 @@ function App() {
       }
       if (sequenceTimeoutRef.current) {
         clearTimeout(sequenceTimeoutRef.current);
+      }
+      if (wordTimeoutRef.current) {
+        clearTimeout(wordTimeoutRef.current);
+      }
+      if (wordRepeatTimeoutRef.current) {
+        clearTimeout(wordRepeatTimeoutRef.current);
       }
       isRealTimeInputRef.current = false;
     };
@@ -936,6 +982,28 @@ function App() {
             />
           </div>
           
+          {/* 점자 셀 아래 큰 이전/다음 버튼 - 항상 표시 */}
+          <div className="word-nav-buttons-large">
+            <button 
+              onClick={navigateToPreviousWord}
+              className="nav-btn-large prev-btn-large"
+              title="이전 단어"
+              disabled={wordSequence.length === 0 || currentWordIndex === 0}
+            >
+              <span className="nav-icon">⏮</span>
+              <span className="nav-text">이전</span>
+            </button>
+            <button 
+              onClick={navigateToNextWord}
+              className="nav-btn-large next-btn-large"
+              title="다음 단어"
+              disabled={wordSequence.length === 0 || currentWordIndex >= wordSequence.length - 1}
+            >
+              <span className="nav-text">다음</span>
+              <span className="nav-icon">⏭</span>
+            </button>
+          </div>
+          
           {/* 단어 네비게이션 컨트롤 */}
           {wordSequence.length > 0 && (
             <div className="navigation-controls">
@@ -973,15 +1041,6 @@ function App() {
                   disabled={currentWordIndex >= wordSequence.length - 1}
                 >
                   다음 단어 ⏩
-                </button>
-              </div>
-              <div className="word-controls">
-                <button 
-                  onClick={() => setAutoWordRepeat(!autoWordRepeat)}
-                  className={`toggle-btn ${autoWordRepeat ? 'active' : ''}`}
-                  title="자동 단어 반복"
-                >
-                  {autoWordRepeat ? '🔄 자동 반복' : '⏸️ 수동 모드'}
                 </button>
               </div>
             </div>
