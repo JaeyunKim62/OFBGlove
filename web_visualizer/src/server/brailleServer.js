@@ -31,6 +31,13 @@ class BrailleServer {
       
       console.log(`🔍 WebSocket 연결 시도: ${clientAddress} (${userAgent})`);
       
+      // 차단된 클라이언트 확인
+      if (this.tcpServer.isClientBlocked(clientAddress)) {
+        console.log(`🚫 차단된 클라이언트 연결 거부: ${clientAddress} (${userAgent})`);
+        ws.close(1000, 'Client blocked by administrator');
+        return;
+      }
+      
       // 내부 연결 차단 (로컬호스트만 차단, 네트워크 연결은 허용)
       const isInternalConnection = 
         clientAddress === '127.0.0.1' || 
@@ -118,6 +125,28 @@ class BrailleServer {
         ws.send(JSON.stringify({
           type: 'pong',
           t0: data.t0 || Date.now()
+        }));
+        break;
+      
+      case 'block_client':
+        if (data.address) {
+          this.tcpServer.blockClient(data.address);
+          console.log(`🚫 관리자 요청으로 클라이언트 차단: ${data.address}`);
+        }
+        break;
+      
+      case 'unblock_client':
+        if (data.address) {
+          this.tcpServer.unblockClient(data.address);
+          console.log(`✅ 관리자 요청으로 클라이언트 차단 해제: ${data.address}`);
+        }
+        break;
+      
+      case 'get_blocked_clients':
+        const blockedClients = this.tcpServer.getBlockedClients();
+        ws.send(JSON.stringify({
+          type: 'blocked_clients',
+          clients: blockedClients
         }));
         break;
 

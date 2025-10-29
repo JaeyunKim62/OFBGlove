@@ -29,6 +29,7 @@ export class WebSocketService {
   public onWordSeparator?: () => void;
   public onSentenceSeparator?: () => void;
   public onBrailleSeparator?: () => void;
+  public onBlockedClients?: (clients: string[]) => void;
   public onError?: (error: Event) => void;
   public onClose?: (event: CloseEvent) => void;
 
@@ -92,6 +93,11 @@ export class WebSocketService {
   }
 
   private handleMessage(data: any) {
+    // 디버깅: 모든 메시지 타입 로그
+    if (data.type === 'word_separator' || data.type === 'sentence_separator' || data.type === 'braille_pattern') {
+      console.log(`🔍 WebSocket 메시지 수신: ${data.type}`, data);
+    }
+    
     switch (data.type) {
       case 'braille_pattern':
         this.handleBraillePattern(data as BraillePatternMessage);
@@ -112,6 +118,7 @@ export class WebSocketService {
         this.onServerLog?.(data.log);
         break;
       case 'word_separator':
+        console.log('📨 word_separator 메시지 처리 시작');
         this.onWordSeparator?.();
         break;
       case 'sentence_separator':
@@ -119,6 +126,9 @@ export class WebSocketService {
         break;
       case 'braille_separator':
         this.onBrailleSeparator?.();
+        break;
+      case 'blocked_clients':
+        this.onBlockedClients?.(data.clients);
         break;
       default:
         console.log('알 수 없는 메시지 타입:', data.type);
