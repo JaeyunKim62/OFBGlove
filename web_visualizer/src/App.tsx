@@ -71,6 +71,7 @@ function App() {
   const lastBrailleTimeRef = useRef<number>(0); // 마지막 점자 수신 시간
   const isRealTimeInputRef = useRef<boolean>(false); // 실시간 입력 상태 추적
   const lastPatternRef = useRef<{ binary: string; character: string; source: string } | null>(null); // 마지막 패턴 (중복 체크용)
+  const isWebInputActiveRef = useRef<boolean>(false); // 웹 입력 활성 상태 추적 (타이머 설정 방지용)
 
   // 로그 추가 함수
   const addLog = (type: LogEntry['type'], message: string, data?: any) => {
@@ -106,7 +107,14 @@ function App() {
 
   // 실시간 입력용 점자 패턴 표시 (시퀀스 재생과 동일한 방식)
   const displayRealTimeBraillePattern = (pattern: BraillePattern) => {
-    console.log(`🎤 실시간 입력: ${pattern.character} (${pattern.binary}), 모드: ${displayMode}, 시간: ${displayDuration}ms`);
+    console.log(`🎤 실시간 입력: ${pattern.character} (${pattern.binary}), 모드: ${displayMode}, 시간: ${displayDuration}ms, 웹 입력 활성: ${isWebInputActiveRef.current}`);
+    
+    // 웹 입력이 활성화되어 있으면 타이머 설정하지 않음
+    if (isWebInputActiveRef.current) {
+      console.log('⚠️ 웹 입력 활성 중 - 음성 입력 패턴 표시하지 않음');
+      return; // 웹 입력 중이면 음성 입력 패턴 표시 안함
+    }
+    
     isRealTimeInputRef.current = true;
     setBraillePattern(pattern);
     
@@ -116,16 +124,28 @@ function App() {
       console.log('⏰ 실시간 입력 - 기존 타이머 클리어됨');
     }
     
-    // 표시 모드에 따른 처리
+    // 표시 모드에 따른 처리 (음성 입력만 타이머 설정)
     switch (displayMode) {
       case 'hide':
         // 설정된 시간 후 숨김
         if (displayDuration > 0) {
           console.log(`⏰ 실시간 입력 - ${displayDuration}ms 후 숨김 타이머 설정`);
           displayTimeoutRef.current = setTimeout(() => {
-            console.log('👻 실시간 입력 - 점자 패턴 숨김');
-            setBraillePattern(null);
-            isRealTimeInputRef.current = false;
+            // 웹 입력이 활성화되어 있으면 초기화하지 않음
+            if (isWebInputActiveRef.current) {
+              console.log('⚠️ 타이머 만료되었지만 웹 입력 활성 중이므로 유지');
+              return;
+            }
+            // 웹 입력이 아닐 때만 숨김
+            setBraillePattern(prev => {
+              if (prev && prev.source === 'web') {
+                console.log('⚠️ 타이머 만료되었지만 웹 입력 중이므로 유지');
+                return prev; // 웹 입력 패턴 유지
+              }
+              console.log('👻 실시간 입력 - 점자 패턴 숨김');
+              isRealTimeInputRef.current = false;
+              return null;
+            });
           }, displayDuration);
         }
         break;
@@ -135,9 +155,21 @@ function App() {
         if (displayDuration > 0) {
           console.log(`⏰ 실시간 입력 - ${displayDuration}ms 후 페이드 아웃 타이머 설정`);
           displayTimeoutRef.current = setTimeout(() => {
-            console.log('👻 실시간 입력 - 점자 패턴 페이드 아웃');
-            setBraillePattern(null);
-            isRealTimeInputRef.current = false;
+            // 웹 입력이 활성화되어 있으면 초기화하지 않음
+            if (isWebInputActiveRef.current) {
+              console.log('⚠️ 타이머 만료되었지만 웹 입력 활성 중이므로 유지');
+              return;
+            }
+            // 웹 입력이 아닐 때만 숨김
+            setBraillePattern(prev => {
+              if (prev && prev.source === 'web') {
+                console.log('⚠️ 타이머 만료되었지만 웹 입력 중이므로 유지');
+                return prev; // 웹 입력 패턴 유지
+              }
+              console.log('👻 실시간 입력 - 점자 패턴 페이드 아웃');
+              isRealTimeInputRef.current = false;
+              return null;
+            });
           }, displayDuration);
         }
         break;
@@ -584,7 +616,32 @@ function App() {
       binary: pattern.map(d => d.isActive ? '1' : '0').join('')
     };
     
-    setBraillePattern(tempPattern);
+    // 빈 패턴(모든 점이 비활성)이면 가운데 점자 셀을 초기화하지 않음
+    const isEmptyPattern = pattern.every(d => !d.isActive);
+    
+    if (!isEmptyPattern) {
+      // 웹 입력 활성화 플래그 설정 (타이머 방지)
+      isWebInputActiveRef.current = true;
+      
+      // 웹 입력 중에는 음성 입력 타이머를 클리어하여 초기화 방지
+      if (displayTimeoutRef.current) {
+        clearTimeout(displayTimeoutRef.current);
+        displayTimeoutRef.current = null;
+        console.log('⏰ 웹 입력 패턴 변경 - 기존 타이머 완전히 클리어 및 제거');
+      }
+      
+      // 웹 입력은 실시간 입력 플래그 해제 (타이머 설정 안함)
+      isRealTimeInputRef.current = false;
+      
+      // 웹 입력 패턴 설정 (타이머 없이 계속 표시 - 초기화 안함)
+      setBraillePattern(tempPattern);
+      console.log('🖐️ 웹 입력 패턴 표시 (타이머 없이 계속 표시):', tempPattern.character, tempPattern.binary);
+    } else {
+      // 빈 패턴이어도 웹 입력 플래그는 유지 (다음 패턴 입력 대기 중)
+      // 타이머는 클리어하지 않음 (이미 활성화된 타이머가 없어야 함)
+      // 기존 웹 입력 패턴은 유지하므로 가운데 점자 셀도 유지됨
+      console.log('⏸️ 웹 입력 빈 패턴 - 플래그 유지, 가운데 점자 셀 유지');
+    }
     // 입력 모드는 유지 - setIsInputMode(false) 제거
   };
 
