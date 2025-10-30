@@ -183,6 +183,53 @@ wearable/
 
 ---
 
+### 4. `vibration_module/` - 저지연 햅틱 드라이버 보드
+
+**DRV2605 기반 LRA 구동을 전담하는 독립형 모듈**
+
+#### 주요 특징
+- **STM32G031 MCU + DRV2605L** 조합으로 150Hz 대역 LRA를 정밀 제어
+- **전용 전원 레귤레이터(TPS7A20)** 와 오토 캘리브레이션 루틴 포함
+- **I2C 4핀 PicoBlade 커넥터** 통해 외부 호스트와 전원/데이터 공유
+- **테스트 포인트(SWD, NRST, 전원)** 제공으로 펌웨어 디버깅 용이
+
+#### 디렉터리 구성
+```
+vibration_module/
+├── firmware/          # STM32Cube HAL 기반 CMake 프로젝트
+│   ├── Core/          # 애플리케이션 코드 (DRV2605 초기화/트리거)
+│   └── cmake/         # arm-none-eabi toolchain 정의
+└── hardware/          # KiCad 프로젝트 및 JLCPCB 제작 파일
+    ├── vibration_module.kicad_{sch,pcb}  # 회로도/PCB
+    └── jlcpcb/production_files/          # Gerber, BOM, CPL
+```
+
+#### 펌웨어 하이라이트 (`firmware/`)
+- `main.c`에서 DRV2605 오토 캘리브레이션, 파형 시퀀스, 주기적 재생 제어
+- `CMakePresets.json` 사용: Ninja + `arm-none-eabi-gcc` 기반 빌드
+- 세미호스팅(`--specs=rdimon.specs`) 활성화로 UART 없이도 로그 확인 가능
+- I2C1: DRV2605 구동, I2C2/UART2는 향후 센서·호스트 확장용으로 선점
+
+#### 빌드 & 플래시
+```bash
+cd vibration_module/firmware
+cmake --preset Release
+cmake --build --preset Release
+# 산출물: build/Release/vibration_module.elf (.bin/.hex)
+
+# ST-Link 예시
+openocd -f interface/stlink.cfg -f target/stm32g0x.cfg \
+  -c "program build/Release/vibration_module.elf verify reset exit"
+```
+
+#### 하드웨어 하이라이트 (`hardware/`)
+- 30×30mm급 단면 배치, 배터리 혹은 3.3V 외부 전원 입력 지원
+- DRV2605 출력은 LRA 구동 FPC/와이어에 바로 연결 가능
+- `BOM-vibration_module.csv`, `CPL-vibration_module.csv` 로 JLCPCB 자동조립 대응
+- `vibration_module-backups/` 폴더에 회로도/PCB 히스토리 백업 포함
+
+---
+
 ## 전체 시스템 실행 가이드
 
 ### Option 1: 완전한 하드웨어 세팅
@@ -420,4 +467,3 @@ wearable/
 | ESP32 Arduino | - | LGPL 2.1 |
 
 ---
-
