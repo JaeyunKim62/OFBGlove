@@ -101,7 +101,7 @@ html, body, #root {
 
 .App-main {
   display: grid;
-  grid-template-columns: 25% 30% 39%; /* 100% 채우기 */
+  grid-template-columns: 30% 25% 39%; /* 100% 채우기 */
   gap: 50px; /* 컴포넌트 사이 간격 제거 */
   padding: 0px; /* 바깥 패딩 제거 */
   padding-left: 10px;
@@ -200,7 +200,7 @@ html, body, #root {
 .text-output {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 24px; /* 현재 단어와 입력 문장 사이 간격 증가 (8px -> 24px) */
   margin-bottom: 12px;
 }
 
@@ -214,33 +214,41 @@ html, body, #root {
   font-weight: 700;
   color: #333;
   min-width: 120px;
+  font-size: 1.5rem; /* 더 크게 */
 }
 
 .text-value {
   background: #f8f9fa;
   border: 1px solid #dee2e6;
   border-radius: 6px;
-  padding: 6px 10px;
+  padding: 10px 14px;
   font-weight: 600;
-}
-
-/* 크기 조정: 현재 단어/입력 문장/출력 문장 */
-.text-value.current-word-value {
-  font-size: 1.4rem;
+  font-size: 1.8rem; /* 더 크게 */
   line-height: 1.6;
-  padding: 8px 14px;
+}
+
+/* 텍스트 해석 섹션의 제목(h4) 크기 */
+.text-output h4 {
+  font-size: 1.6rem; /* 더 크게 */
+  font-weight: 700;
+  color: #333;
+  margin: 0;
+  min-width: 140px;
+}
+
+/* 크기 조정: 현재 단어/입력 문장/수신 문장 */
+.text-value.current-word-value {
+  font-size: 2rem; /* 더 크게 */
+  line-height: 1.6;
+  padding: 12px 16px;
 }
 
 .text-value.sentence {
   width: 100%;
   text-align: left;
-  font-size: 1.15rem;
+  font-size: 1.6rem; /* 더 크게 */
   line-height: 1.8;
-}
-
-.text-value.sentence {
-  width: 100%;
-  text-align: left;
+  padding: 12px 16px;
 }
 
 .left-panel {
@@ -1148,25 +1156,27 @@ html, body, #root {
   cursor: not-allowed;
 }
 
-/* 현재 문장 시퀀스 섹션 */
+/* 현재 문장 시퀀스 섹션 (수신 문장) */
 .current-sentence-section {
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
+  margin-top: 24px; /* 입력 문장과 수신 문장 사이 간격 */
 }
 
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
 }
 
 .section-header h4 {
   margin: 0;
   color: #333;
-  font-size: 1.1rem;
+  font-size: 1.5rem; /* 더 크게 */
+  font-weight: 700;
 }
 
 .sentence-controls {
@@ -1187,38 +1197,39 @@ html, body, #root {
 .sentence-sequence-display {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 16px; /* 간격 증가 */
   flex: 1;
   overflow: hidden;
 }
 
 .sentence-character-line {
   display: flex;
-  gap: 4px;
+  gap: 6px; /* 간격 증가 */
   justify-content: flex-start;
   flex-wrap: nowrap; /* 가로로 길게, 줄바꿈 없음 */
-  padding: 8px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  border: 1px solid #dee2e6;
-  min-height: 40px;
+  padding: 12px; /* 패딩 증가 */
+  background: white;
+  border-radius: 10px;
+  border: 2px solid #dee2e6;
+  min-height: 55px; /* 높이 증가 */
   align-items: center;
   overflow-x: auto; /* 가로 스크롤 허용 */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 .sentence-character-item {
   display: inline-block;
-  font-size: 1.05rem; /* 출력 문장 글자 크기 약간 작게 */
+  font-size: 1.3rem; /* 더 크게 (1.05rem -> 1.3rem) */
   font-weight: bold;
   color: #333;
   text-align: center;
-  min-width: 25px;
-  padding: 3px 6px;
+  min-width: 32px; /* 크기 증가 */
+  padding: 6px 10px; /* 패딩 증가 */
   background: white;
-  border-radius: 3px;
-  border: 1px solid #dee2e6;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  margin: 1px;
+  border-radius: 6px;
+  border: 2px solid #dee2e6;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin: 2px;
   transition: all 0.3s ease;
 }
 
@@ -1243,26 +1254,27 @@ html, body, #root {
 
 .sentence-braille-line {
   display: flex;
-  gap: 4px;
+  gap: 6px; /* 간격 증가 */
   justify-content: flex-start;
   flex-wrap: nowrap; /* 가로로 길게, 줄바꿈 없음 */
-  padding: 8px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  border: 1px solid #dee2e6;
-  min-height: 60px;
+  padding: 12px; /* 패딩 증가 */
+  background: white;
+  border-radius: 10px;
+  border: 2px solid #dee2e6;
+  min-height: 80px; /* 높이 증가 */
   align-items: center;
   overflow-x: auto; /* 가로 스크롤 허용 */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 .sentence-braille-item {
   display: inline-block;
-  padding: 2px;
+  padding: 4px; /* 패딩 증가 */
   background: white;
-  border-radius: 3px;
-  border: 1px solid #dee2e6;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  margin: 1px;
+  border-radius: 6px;
+  border: 2px solid #dee2e6;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin: 2px;
   transition: all 0.3s ease;
 }
 
@@ -1308,22 +1320,25 @@ html, body, #root {
 
 .sentence-progress {
   text-align: center;
-  font-size: 0.9rem;
+  font-size: 1.1rem; /* 크기 증가 */
   color: #007bff;
-  font-weight: 600;
-  padding: 8px;
+  font-weight: 700; /* 더 굵게 */
+  padding: 12px; /* 패딩 증가 */
   background: #e3f2fd;
-  border-radius: 6px;
-  border: 1px solid #bbdefb;
+  border-radius: 8px;
+  border: 2px solid #bbdefb;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* 현재 재생 중인 점자 강조 (문장용) */
 .sentence-character-item.current-braille,
 .sentence-braille-item.current-braille {
   background: #ffc107 !important;
-  border-color: #ffc107 !important;
-  box-shadow: 0 0 10px rgba(255, 193, 7, 0.5) !important;
-  transform: scale(1.1);
+  transform: scale(1.15); /* 약간 확대 */
+  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.5) !important;
+  z-index: 10;
+  border-color: #ff9800 !important;
+  border-width: 3px;
 }
 
 /* 반응형 디자인 - 전체 레이아웃 */

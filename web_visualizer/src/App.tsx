@@ -566,15 +566,17 @@ function App() {
     }
   };
 
-  // 현재 문장 시퀀스 재생 함수
+  // 현재 문장 시퀀스 재생 함수 (수신 문장만 - 음성만)
   const playCurrentSentenceSequence = (startIndex: number = 0) => {
-    if (currentSentenceSequence.length === 0) return;
+    // 수신 문장만 필터링 (web 소스 제외)
+    const receivedSequence = currentSentenceSequence.filter(p => p.source !== 'web');
+    if (receivedSequence.length === 0) return;
     
     setIsPlayingCurrentSentence(true);
     setCurrentSentenceIndex(startIndex);
     
     const playNextBraille = (index: number) => {
-      if (index >= currentSentenceSequence.length) {
+      if (index >= receivedSequence.length) {
         setIsPlayingCurrentSentence(false);
         setBraillePattern(null);
         console.log('📝 문장 시퀀스 재생 완료');
@@ -585,8 +587,8 @@ function App() {
         return;
       }
       
-      const pattern = currentSentenceSequence[index];
-      console.log(`📝 문장 재생: ${index + 1}/${currentSentenceSequence.length} - ${pattern.character} (${pattern.binary})`);
+      const pattern = receivedSequence[index];
+      console.log(`📝 문장 재생: ${index + 1}/${receivedSequence.length} - ${pattern.character} (${pattern.binary})`);
       
       // 기존 타이머 클리어
       if (displayTimeoutRef.current) {
@@ -600,8 +602,12 @@ function App() {
       let nextInterval = brailleInterval; // 기본값
       
       // separator 간격이 있으면 사용 (문장 내에서의 인덱스)
-      if (separatorTimings.length > index) {
-        nextInterval = separatorTimings[index];
+      // 원본 인덱스를 찾아서 separatorTimings에서 매칭
+      const originalIndex = currentSentenceSequence.findIndex(p => 
+        p.timestamp === pattern.timestamp && p.binary === pattern.binary
+      );
+      if (originalIndex >= 0 && separatorTimings.length > originalIndex) {
+        nextInterval = separatorTimings[originalIndex];
       }
       
       // 속도 배율 적용
@@ -1169,6 +1175,9 @@ function App() {
   const sentenceTextAll = patternsToText(currentSentenceSequence);
   const sentenceTextEsp32 = patternsToText(currentSentenceSequence.filter(p => p.source === 'esp32'));
   const sentenceTextWeb = patternsToText(currentSentenceSequence.filter(p => p.source === 'web'));
+  
+  // 수신 문장: 음성(esp32/demo)만 필터링 (web 소스 제외)
+  const receivedSentenceSequence = currentSentenceSequence.filter(p => p.source !== 'web');
 
   // 현재 단어 텍스트(웹 입력 버퍼 기준)
   const currentWebWordText = (() => {
@@ -1183,7 +1192,6 @@ function App() {
   })();
   const lastBufferedIsSpace = webInputBuffer.length > 0 && webInputBuffer[webInputBuffer.length - 1].binary === '000000';
   const webBufferPreview = webInputBuffer.map(p => (p.binary === '000000' ? '␣' : (p.character || '?'))).join('');
-  const showOutputSentence = currentSentenceSequence.some(p => p.source !== 'web');
 
   return (
     <div className="App">
@@ -1233,28 +1241,21 @@ function App() {
               <span className="text-value sentence">{sentenceTextAll || '—'}</span>
             </div>
           </div>
-          {showOutputSentence && (
           <div className="current-sentence-section">
             <div className="section-header">
               <div className="sentence-title-section">
-                <h4>출력 문장</h4>
-                {currentSentenceSequence.length > 0 && (
+                <h4>수신 문장</h4>
+                {receivedSentenceSequence.length > 0 && (
                   <div className="sentence-source-stats">
                     {(() => {
-                      const esp32Count = currentSentenceSequence.filter(p => p.source === 'esp32').length;
-                      const webCount = currentSentenceSequence.filter(p => p.source === 'web').length;
-                      const demoCount = currentSentenceSequence.filter(p => p.source === 'demo').length;
+                      const esp32Count = receivedSentenceSequence.filter(p => p.source === 'esp32').length;
+                      const demoCount = receivedSentenceSequence.filter(p => p.source === 'demo').length;
                       
                       return (
                         <div className="source-stats">
                           {esp32Count > 0 && (
                             <span className="source-stat esp32-stat">
                               📡 {esp32Count}개
-                            </span>
-                          )}
-                          {webCount > 0 && (
-                            <span className="source-stat web-stat">
-                              💻 {webCount}개
                             </span>
                           )}
                           {demoCount > 0 && (
@@ -1269,7 +1270,7 @@ function App() {
                 )}
               </div>
               <div className="sentence-controls">
-                {currentSentenceSequence.length > 0 && (
+                {receivedSentenceSequence.length > 0 && (
                   <>
                     <button 
                       onClick={isPlayingCurrentSentence ? stopCurrentSentenceSequence : () => playCurrentSentenceSequence()}
@@ -1297,19 +1298,19 @@ function App() {
               </div>
             </div>
             
-            {currentSentenceSequence.length === 0 ? (
+            {receivedSentenceSequence.length === 0 ? (
               <div className="no-sentence"></div>
             ) : (
               <div className="sentence-sequence-display">
                 {/* 문자 라인 */}
                 <div className="sentence-character-line">
-                  {currentSentenceSequence.map((pattern, index) => {
+                  {receivedSentenceSequence.map((pattern, index) => {
                     const isCurrent = isPlayingCurrentSentence && index === currentSentenceIndex;
                     return (
                       <span 
                         key={`sentence-char-${pattern.timestamp}-${index}`} 
                         className={`sentence-character-item ${isCurrent ? 'current-braille' : ''} source-${pattern.source}`}
-                        title={`${pattern.source === 'esp32' ? 'WiFi 외부 입력' : pattern.source === 'web' ? '웹 직접 입력' : '데모'} - ${pattern.binary}`}
+                        title={`${pattern.source === 'esp32' ? 'WiFi 외부 입력' : pattern.source === 'demo' ? '데모' : '웹 직접 입력'} - ${pattern.binary}`}
                       >
                         {pattern.binary === '000000' ? '공백' : (pattern.character || '?')}
                       </span>
@@ -1319,13 +1320,13 @@ function App() {
                 
                 {/* 점자 패턴 라인 */}
                 <div className="sentence-braille-line">
-                  {currentSentenceSequence.map((pattern, index) => {
+                  {receivedSentenceSequence.map((pattern, index) => {
                     const isCurrent = isPlayingCurrentSentence && index === currentSentenceIndex;
                     return (
                       <div 
                         key={`sentence-braille-${pattern.timestamp}-${index}`} 
                         className={`sentence-braille-item ${isCurrent ? 'current-braille' : ''} source-${pattern.source}`}
-                        title={`${pattern.source === 'esp32' ? 'WiFi 외부 입력' : pattern.source === 'web' ? '웹 직접 입력' : '데모'} - ${pattern.binary}`}
+                        title={`${pattern.source === 'esp32' ? 'WiFi 외부 입력' : pattern.source === 'demo' ? '데모' : '웹 직접 입력'} - ${pattern.binary}`}
                       >
                         <BrailleCell 
                           dots={pattern.dots}
@@ -1340,13 +1341,12 @@ function App() {
                 {/* 진행 상태 */}
                 {isPlayingCurrentSentence && (
                   <div className="sentence-progress">
-                    진행: {currentSentenceIndex + 1}/{currentSentenceSequence.length}
+                    진행: {currentSentenceIndex + 1}/{receivedSentenceSequence.length}
                   </div>
                 )}
               </div>
             )}
           </div>
-          )}
         </div>
 
         {/* 점자 입력 섹션 - 메인 화면에 직접 표시 */}
