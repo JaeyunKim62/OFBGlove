@@ -1,12 +1,12 @@
 /* 점자 입력 컴포넌트 스타일 */
 .braille-input {
   height: 440px;
-  background: white;
-  border: 2px solid #dee2e6;
-  border-radius: 12px;
-  padding: 20px;
-  margin: 20px 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: transparent; /* 내부 카드 박스 제거 */
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+  box-shadow: none;
   transition: all 0.3s ease;
   position: relative; /* 내부 배경 배치 */
   overflow: hidden;

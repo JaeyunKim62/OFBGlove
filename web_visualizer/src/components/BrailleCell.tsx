@@ -45,7 +45,7 @@ export const BrailleCell: React.FC<BrailleCellProps> = ({
 
   return (
     <div className={`braille-cell braille-cell-${size} braille-cell-${displayMode} ${isVisible ? 'visible' : 'hidden'}`}>
-      <div className="braille-cell-title">점자 셀</div>
+      {/* <div className="braille-cell-title">점자 셀</div> */}
       <div className="braille-cell-grid">
         {cellPositions.map((pos) => {
           const dot = dots.find(d => d.id === pos.id);

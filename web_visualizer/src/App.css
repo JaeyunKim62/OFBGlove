@@ -95,10 +95,9 @@
 
 .App-main {
   display: grid;
-  grid-template-columns: 0.5fr 1fr; /* 왼쪽 패널 폭을 조금 축소 */
-  grid-template-rows: auto auto; /* 2-row layout: top row, sentence row */
-  gap: 20px;
-  padding: 20px;
+  grid-template-columns: 0.5fr 1fr 0.7fr; /* 왼쪽 패널 폭을 조금 축소 */
+  gap: 10px;
+  padding: 10px;
   max-width: 1200px;
   margin: 0 auto;
 }
@@ -108,11 +107,11 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: white;
-  border-radius: 15px;
-  padding: 15px 30px; /* 위아래 패딩을 15px로 통일 */
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e0e0e0;
+  background: transparent; /* 외곽 박스 제거 */
+  border-radius: 0;
+  padding: 0; /* 패딩 제거로 여백 축소 */
+  box-shadow: none;
+  border: none;
   height: fit-content; /* 내용에 맞는 높이로 조정 */
   grid-column: 1; /* 첫 번째 열 */
   grid-row: 1; /* 첫 번째 행 */
@@ -174,8 +173,8 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   border: 1px solid #e0e0e0;
   height: fit-content;
-  grid-column: 1 / -1; /* 전체 너비 사용 */
-  grid-row: 2; /* 두 번째 행에 배치 */
+  grid-column: 3 / -1; /* 전체 너비 사용 */
+  grid-row: 1; /* 두 번째 행에 배치 */
 }
 
 /* 텍스트 해석 섹션 */
@@ -833,7 +832,6 @@
 /* 점자 입력 섹션 스타일 */
 .braille-input-section {
   height: 640px;
-  margin: 20px 0;
   padding: 20px;
   background: #f8f9fa;
   border-radius: 10px;

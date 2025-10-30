@@ -90,10 +90,10 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
         }}
       />
       <div className="braille-input-header">
-        <h4>점자 입력</h4>
+        {/* <h4>점자 입력</h4> */}
         <div className="input-status">
           {isInputMode ? (
-            <span className="status-active">입력 모드</span>
+            <span className="status-active"></span>
           ) : (
             <span className="status-inactive">대기 중</span>
           )}

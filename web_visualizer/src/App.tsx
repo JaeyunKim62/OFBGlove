@@ -55,9 +55,9 @@ function App() {
   const [isInputMode, setIsInputMode] = useState(true); // 점자 입력 모드 (기본 활성화)
   const [inputPatterns, setInputPatterns] = useState<BraillePattern[]>([]); // 입력된 점자 패턴들
   const [webInputBuffer, setWebInputBuffer] = useState<BraillePattern[]>([]); // 웹 입력 버퍼(전송 전까지 대기)
-  const [glovePosX, setGlovePosX] = useState(30); // % (좌측 기준)
+  const [glovePosX, setGlovePosX] = useState(50); // % (좌측 기준)
   const [glovePosY, setGlovePosY] = useState(50); // % (상단 기준)
-  const [gloveScale, setGloveScale] = useState(100); // % (contain 유사 효과)
+  const [gloveScale, setGloveScale] = useState(150); // % (더 크게 표시)
   const [gloveOpacity, setGloveOpacity] = useState(1); // 0~1
   
   const wsServiceRef = useRef<WebSocketService | null>(null);
