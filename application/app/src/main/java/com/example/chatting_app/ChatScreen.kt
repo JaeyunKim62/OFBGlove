@@ -2,7 +2,6 @@ package com.example.chatting_app
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,9 +9,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.input.pointer.awaitEachGesture
+import androidx.compose.ui.input.pointer.awaitFirstDown
+import androidx.compose.ui.input.pointer.awaitUp
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.*
@@ -64,8 +64,8 @@ fun ChatScreen(
     onPreviousVoicePattern: () -> Unit = {},
     onExitVoiceMode: () -> Unit = {}
 ) {
-    // 현재 활성 사용자
-    var currentActiveUser by remember { mutableStateOf(ActiveUserType.DEAF_BLIND) }
+    // 현재 활성 사용자 - 음성 발화자만 사용 (시청각장애인 비활성화)
+    var currentActiveUser by remember { mutableStateOf(ActiveUserType.AUDIO_SPEAKER) }
     
     // 왼쪽 사용자 (시청각장애인) 상태 - 텍스트 입력 제거됨
     
@@ -80,13 +80,13 @@ fun ChatScreen(
         }
     }
     
-    // 사용자 전환 시 점자 표시 모드 자동 종료
-    LaunchedEffect(currentActiveUser) {
-        if (brailleInputState.value.isShowingVoiceBraille) {
-            android.util.Log.d("ChatScreen", "사용자 전환 감지 - 점자 표시 모드 자동 종료")
-            onExitVoiceMode()
-        }
-    }
+    // 사용자 전환 기능 비활성화 (음성 발화자만 사용)
+    // LaunchedEffect(currentActiveUser) {
+    //     if (brailleInputState.value.isShowingVoiceBraille) {
+    //         android.util.Log.d("ChatScreen", "사용자 전환 감지 - 점자 표시 모드 자동 종료")
+    //         onExitVoiceMode()
+    //     }
+    // }
     
     // Animated alpha for listening state (최적화)
     val micAlpha by animateFloatAsState(
@@ -118,13 +118,13 @@ fun ChatScreen(
             }
         }
 
-        // User Switcher (채팅과 입력 사이)
-        UserSwitcher(
-            currentUser = currentActiveUser,
-            onUserSwitch = { userType ->
-                currentActiveUser = userType
-            }
-        )
+        // User Switcher 비활성화 (음성 발화자만 사용)
+        // UserSwitcher(
+        //     currentUser = currentActiveUser,
+        //     onUserSwitch = { userType ->
+        //         currentActiveUser = userType
+        //     }
+        // )
 
         // Input Area - Two User Sections (가로 배치 고정)
         val screenHeight = configuration.screenHeightDp.dp
@@ -134,31 +134,13 @@ fun ChatScreen(
         val verticalPadding = (screenHeight * 0.02f).coerceAtLeast(8.dp).coerceAtMost(20.dp)
         val spacing = (screenWidth * 0.04f).coerceAtLeast(12.dp).coerceAtMost(24.dp)
         
-        Row(
+        // 입력 영역 - 음성 발화자만 사용 (시청각장애인 입력 영역 비활성화)
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = horizontalPadding, vertical = verticalPadding),
-            horizontalArrangement = Arrangement.spacedBy(spacing)
+                .padding(horizontal = horizontalPadding, vertical = verticalPadding)
         ) {
-            // 왼쪽 사용자 입력 영역 (시청각장애인) - 점자 그리드만
-            VisualImpairedUserInput(
-                onBrailleSend = onVisualImpairedBrailleMessage,
-                brailleInputState = brailleInputState,
-                onBrailleDotTouched = onBrailleDotTouched,
-                onBrailleComplete = onBrailleComplete,
-                onBrailleClear = onBrailleClear,
-                onNextVoicePattern = onNextVoicePattern,
-                onPreviousVoicePattern = onPreviousVoicePattern,
-                onExitVoiceMode = onExitVoiceMode,
-                isActive = remember(currentActiveUser, brailleInputState.value.isShowingVoiceBraille) {
-                    val isDeafBlind = currentActiveUser == ActiveUserType.DEAF_BLIND
-                    val isShowingVoice = brailleInputState.value.isShowingVoiceBraille
-                    isDeafBlind || isShowingVoice
-                },
-                modifier = Modifier.weight(1f)
-            )
-
-            // 오른쪽 사용자 입력 영역 (음성 발화자) - 음성 입력 + 텍스트 입력
+            // 음성 발화자 입력 영역만 표시
             SightedUserInput(
                 textInput = sightedTextInput,
                 onTextInputChange = { sightedTextInput = it },
@@ -175,8 +157,8 @@ fun ChatScreen(
                 onClearPendingText = onClearPendingVoiceMessage,
                 isListening = isListening,
                 micAlpha = micAlpha,
-                isActive = currentActiveUser == ActiveUserType.AUDIO_SPEAKER,
-                modifier = Modifier.weight(1f)
+                isActive = true, // 항상 활성화 (음성 발화자만 사용)
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }
@@ -288,8 +270,8 @@ private fun SightedUserInput(
             ) {
                 Box(
                     modifier = Modifier
-                        .pointerInput(Unit) {
-                            while (true) {
+                        .pointerInput(isActive) {
+                            awaitEachGesture {
                                 // 버튼을 누르기를 기다림
                                 val down = awaitFirstDown()
                                 // 버튼을 누르면 음성 인식 시작
@@ -297,7 +279,7 @@ private fun SightedUserInput(
                                     onVoiceStart()
                                 }
                                 // 버튼을 떼기를 기다림
-                                waitForUpOrCancellation(down.id)
+                                awaitUp(down)
                                 // 버튼을 떼면 음성 인식 중지
                                 if (isActive) {
                                     onVoiceStop()
