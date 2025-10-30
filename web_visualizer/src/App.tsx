@@ -1233,7 +1233,7 @@ function App() {
           {/* 텍스트 해석 */}
           <div className="text-output">
             <div className="text-row">
-              <span className="text-label">현재 단어:</span>
+              <span className="text-label">현재 단어</span>
               <span className="text-value">{currentWebWordText || (lastBufferedIsSpace ? '␣' : '')}</span>
             </div>
             <div className="text-row">
