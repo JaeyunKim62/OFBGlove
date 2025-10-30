@@ -2,6 +2,7 @@ package com.example.chatting_app
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,6 +10,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.*
@@ -41,7 +45,11 @@ fun ChatScreen(
     onVisualImpairedBrailleMessage: () -> Unit,
     // 오른쪽 사용자 (음성 발화자) 입력
     onSightedTextMessage: (String) -> Unit,
-    onSightedVoiceMessage: () -> Unit,
+    onSightedVoiceMessageStart: () -> Unit,
+    onSightedVoiceMessageStop: () -> Unit,
+    pendingRecognizedText: String?,
+    onSendPendingVoiceMessage: () -> Unit,
+    onClearPendingVoiceMessage: () -> Unit,
     // 공통 상태
     isListening: Boolean,
     messages: List<ChatMessage> = emptyList(),
@@ -160,7 +168,11 @@ fun ChatScreen(
                         sightedTextInput = ""
                     }
                 },
-                onVoiceSend = onSightedVoiceMessage,
+                onVoiceStart = onSightedVoiceMessageStart,
+                onVoiceStop = onSightedVoiceMessageStop,
+                pendingRecognizedText = pendingRecognizedText,
+                onSendPendingText = onSendPendingVoiceMessage,
+                onClearPendingText = onClearPendingVoiceMessage,
                 isListening = isListening,
                 micAlpha = micAlpha,
                 isActive = currentActiveUser == ActiveUserType.AUDIO_SPEAKER,
@@ -236,7 +248,11 @@ private fun SightedUserInput(
     textInput: String,
     onTextInputChange: (String) -> Unit,
     onTextSend: () -> Unit,
-    onVoiceSend: () -> Unit,
+    onVoiceStart: () -> Unit,
+    onVoiceStop: () -> Unit,
+    pendingRecognizedText: String?,
+    onSendPendingText: () -> Unit,
+    onClearPendingText: () -> Unit,
     isListening: Boolean,
     micAlpha: Float,
     isActive: Boolean = true,
@@ -265,21 +281,69 @@ private fun SightedUserInput(
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            // 음성 입력 (위쪽)
+            // 음성 입력 (위쪽) - 버튼을 누르고 있을 때만 인식
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center
             ) {
-                Button(
-                    onClick = if (isActive) onVoiceSend else { -> },
-                    modifier = Modifier.alpha(if (isActive) micAlpha else 0.5f),
-                    enabled = isActive
+                Box(
+                    modifier = Modifier
+                        .pointerInput(Unit) {
+                            while (true) {
+                                // 버튼을 누르기를 기다림
+                                val down = awaitFirstDown()
+                                // 버튼을 누르면 음성 인식 시작
+                                if (isActive) {
+                                    onVoiceStart()
+                                }
+                                // 버튼을 떼기를 기다림
+                                waitForUpOrCancellation(down.id)
+                                // 버튼을 떼면 음성 인식 중지
+                                if (isActive) {
+                                    onVoiceStop()
+                                }
+                            }
+                        }
                 ) {
-                    Text(if (isListening) "음성 입력 중..." else "음성 입력")
+                    Button(
+                        onClick = { /* pointerInput에서 처리함 */ },
+                        modifier = Modifier.alpha(if (isActive) micAlpha else 0.5f),
+                        enabled = isActive
+                    ) {
+                        Text(if (isListening) "음성 입력 중..." else "음성 입력\n(누르고 있기)")
+                    }
                 }
             }
             
             Spacer(modifier = Modifier.height(12.dp))
+            
+            // 전송/취소 버튼 (인식 결과가 있을 때만 표시)
+            if (pendingRecognizedText != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onSendPendingText,
+                        modifier = Modifier.weight(1f),
+                        enabled = isActive
+                    ) {
+                        Text("전송")
+                    }
+                    Button(
+                        onClick = onClearPendingText,
+                        modifier = Modifier.weight(1f),
+                        enabled = isActive,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    ) {
+                        Text("취소")
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
             
             // 텍스트 입력 (음성 입력 아래)
             Row(

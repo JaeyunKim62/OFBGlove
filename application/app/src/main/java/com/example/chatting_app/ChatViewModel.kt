@@ -53,6 +53,10 @@ class ChatViewModel : ViewModel() {
     private val _sttStatus = MutableStateFlow<SttStatus>(SttStatus.Idle)
     val sttStatus: StateFlow<SttStatus> = _sttStatus.asStateFlow()
     
+    // Pending recognized text (before sending)
+    private val _pendingRecognizedText = MutableStateFlow<String?>(null)
+    val pendingRecognizedText: StateFlow<String?> = _pendingRecognizedText.asStateFlow()
+    
     // Speech recognition and TTS instances
     private var speechRecognizer: SpeechRecognizer? = null
     private var textToSpeech: TextToSpeech? = null
@@ -270,18 +274,40 @@ class ChatViewModel : ViewModel() {
     
     /**
      * Process the recognized text from STT (음성 발화자 사용자의 음성 입력)
+     * 인식 결과를 임시 저장하고, 전송 버튼을 눌러야 전송됨
      */
     private fun processRecognizedText(recognizedText: String) {
         if (recognizedText.isNotBlank()) {
             // Clean up the recognized text
             val cleanedText = cleanRecognizedText(recognizedText)
             
+            // 인식 결과를 임시 저장 (전송 버튼 대기)
+            _pendingRecognizedText.value = cleanedText
+        }
+    }
+    
+    /**
+     * 전송 버튼 클릭 시 호출 - 임시 저장된 인식 결과를 전송
+     */
+    fun sendPendingVoiceMessage() {
+        val pendingText = _pendingRecognizedText.value
+        if (!pendingText.isNullOrBlank()) {
             // STT 결과를 음성 발화자 사용자 메시지로 처리 (텍스트 + 점자)
-            addSightedVoiceMessage(cleanedText)
+            addSightedVoiceMessage(pendingText)
             
             // WiFi로 전송
-            sendVoiceToWifi(cleanedText)
+            sendVoiceToWifi(pendingText)
+            
+            // 임시 저장된 텍스트 초기화
+            _pendingRecognizedText.value = null
         }
+    }
+    
+    /**
+     * 임시 저장된 인식 결과 취소 (전송 버튼을 누르지 않고 취소)
+     */
+    fun clearPendingVoiceMessage() {
+        _pendingRecognizedText.value = null
     }
     
     /**
@@ -356,13 +382,13 @@ class ChatViewModel : ViewModel() {
     }
     
     /**
-     * Start speech recognition with STT processing
+     * Start speech recognition with STT processing (public for button hold feature)
      */
-    private fun startSpeechRecognition() {
+    fun startSpeechRecognition() {
         speechRecognizer?.let { recognizer ->
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.US)
                 putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now...")
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3) // Get multiple results for better accuracy
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true) // Enable partial results
@@ -383,9 +409,9 @@ class ChatViewModel : ViewModel() {
     }
     
     /**
-     * Stop speech recognition
+     * Stop speech recognition (public for button release feature)
      */
-    private fun stopSpeechRecognition() {
+    fun stopSpeechRecognition() {
         speechRecognizer?.stopListening()
         _isListening.value = false
         _sttStatus.value = SttStatus.Idle

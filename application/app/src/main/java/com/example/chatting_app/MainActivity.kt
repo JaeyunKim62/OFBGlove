@@ -72,6 +72,7 @@ fun ChatApp(
     val context = LocalContext.current
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val isListening by viewModel.isListening.collectAsStateWithLifecycle()
+    val pendingRecognizedText by viewModel.pendingRecognizedText.collectAsStateWithLifecycle()
     
     // 점자 입력 상태
     val brailleInputStateFlow = viewModel.brailleInputState
@@ -146,13 +147,24 @@ fun ChatApp(
                 onSightedTextMessage = { content ->
                     viewModel.addSightedTextMessage(content)
                 },
-                onSightedVoiceMessage = {
+                onSightedVoiceMessageStart = {
                     // Check permission before starting speech recognition
                     if (viewModel.hasRecordAudioPermission(context)) {
-                        viewModel.toggleSpeechRecognition()
+                        viewModel.startSpeechRecognition()
                     } else {
                         requestPermission(Manifest.permission.RECORD_AUDIO)
                     }
+                },
+                onSightedVoiceMessageStop = {
+                    // Stop speech recognition when button is released
+                    viewModel.stopSpeechRecognition()
+                },
+                pendingRecognizedText = pendingRecognizedText,
+                onSendPendingVoiceMessage = {
+                    viewModel.sendPendingVoiceMessage()
+                },
+                onClearPendingVoiceMessage = {
+                    viewModel.clearPendingVoiceMessage()
                 },
                 // 공통 상태
                 isListening = isListening,
