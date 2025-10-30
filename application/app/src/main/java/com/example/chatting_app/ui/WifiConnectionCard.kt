@@ -71,7 +71,7 @@ fun WifiConnectionCard(
                     
                     Column {
                         Text(
-                            text = if (isConnected) "WiFi 연결됨" else "WiFi 연결 안됨",
+                            text = if (isConnected) "WiFi 연결됨" else "연결 안됨",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = if (isConnected) 

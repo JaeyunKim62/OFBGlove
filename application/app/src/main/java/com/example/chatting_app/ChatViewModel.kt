@@ -86,7 +86,7 @@ class ChatViewModel : ViewModel() {
     private val _isWifiConnected = MutableStateFlow(false)
     val isWifiConnected: StateFlow<Boolean> = _isWifiConnected.asStateFlow()
     
-    private val _wifiConnectionStatus = MutableStateFlow("WiFi 연결 안됨")
+    private val _wifiConnectionStatus = MutableStateFlow("연결 안됨")
     val wifiConnectionStatus: StateFlow<String> = _wifiConnectionStatus.asStateFlow()
     
     // 전송 모드 (패턴 모드 vs 개별 점 모드)
@@ -813,7 +813,7 @@ class ChatViewModel : ViewModel() {
                     _wifiConnectionStatus.value = when (state) {
                         com.example.chatting_app.network.ConnectionState.CONNECTED -> "WiFi 연결됨"
                         com.example.chatting_app.network.ConnectionState.CONNECTING -> "WiFi 연결 중..."
-                        com.example.chatting_app.network.ConnectionState.DISCONNECTED -> "WiFi 연결 안됨"
+                        com.example.chatting_app.network.ConnectionState.DISCONNECTED -> "연결 안됨"
                         com.example.chatting_app.network.ConnectionState.ERROR -> "WiFi 연결 오류"
                     }
                 }
