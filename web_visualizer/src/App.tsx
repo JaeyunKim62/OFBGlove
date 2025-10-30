@@ -996,7 +996,7 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>OFBGlove 점자 비주얼라이저</h1>
+        <h1>OFBGlove 점자 시연</h1>
         <div className="header-controls">
           <div className="connection-status">
             <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>

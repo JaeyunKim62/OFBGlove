@@ -125,24 +125,7 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
 
       <div className="braille-input-controls">
         <div className="input-controls">
-          <button 
-            onClick={confirmAndNext}
-            className="control-btn confirm-btn"
-          >
-            다음
-          </button>
-          <button 
-            onClick={onSend}
-            className="control-btn complete-btn"
-          >
-            전송
-          </button>
-          <button 
-            onClick={resetPattern}
-            className="control-btn cancel-btn"
-          >
-            초기화
-          </button>
+          <button onClick={confirmAndNext} className="control-btn confirm-btn">다음</button>
         </div>
       </div>
 
