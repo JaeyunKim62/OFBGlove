@@ -979,6 +979,123 @@ function App() {
     setWebInputBuffer([]);
   };
 
+  // 텍스트 언어 자동 감지 (영어 우선)
+  const detectLanguage = (text: string): string => {
+    const trimmedText = text.trim();
+    if (!trimmedText) return 'en-US';
+    
+    // 한글 유니코드 범위: AC00-D7AF
+    const hasKorean = /[\uAC00-\uD7AF]/.test(trimmedText);
+    
+    // 영어 알파벳이 주로 포함되어 있거나 한글이 없으면 영어로 판단
+    if (!hasKorean || /^[A-Za-z\s]+$/.test(trimmedText)) {
+      return 'en-US';
+    }
+    
+    // 한글이 포함되어 있으면 한국어로 판단
+    return 'ko-KR';
+  };
+
+  // 최적의 음성 선택 (영어 우선)
+  const selectBestVoice = (lang: string): SpeechSynthesisVoice | null => {
+    if (!('speechSynthesis' in window)) return null;
+    
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length === 0) return null;
+    
+    if (lang === 'en-US') {
+      // 영어 음성 우선순위: Google 영어 음성 > en-US > en-GB > 기타 영어
+      const googleEnglish = voices.find(v => 
+        v.lang.startsWith('en') && 
+        (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Enhanced'))
+      );
+      if (googleEnglish) return googleEnglish;
+      
+      const enUS = voices.find(v => v.lang === 'en-US');
+      if (enUS) return enUS;
+      
+      const enGB = voices.find(v => v.lang === 'en-GB');
+      if (enGB) return enGB;
+      
+      const anyEnglish = voices.find(v => v.lang.startsWith('en'));
+      if (anyEnglish) return anyEnglish;
+    } else if (lang === 'ko-KR') {
+      // 한국어 음성 우선순위: Google 한국어 > ko-KR > 기타 한국어
+      const googleKorean = voices.find(v => 
+        v.lang.startsWith('ko') && 
+        (v.name.includes('Google') || v.name.includes('Natural'))
+      );
+      if (googleKorean) return googleKorean;
+      
+      const koKR = voices.find(v => v.lang === 'ko-KR');
+      if (koKR) return koKR;
+      
+      const anyKorean = voices.find(v => v.lang.startsWith('ko'));
+      if (anyKorean) return anyKorean;
+    }
+    
+    return null;
+  };
+
+  // TTS로 텍스트 읽기 함수 (영어 우선)
+  const speakText = (text: string) => {
+    if (!text || text.trim() === '') return;
+    
+    // 브라우저 지원 확인
+    if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) {
+      console.warn('TTS가 지원되지 않는 브라우저입니다.');
+      return;
+    }
+
+    try {
+      // 기존 발화 취소 (중복 방지)
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(text.trim());
+      
+      // 텍스트 언어 자동 감지 (영어 우선)
+      const detectedLang = detectLanguage(text);
+      utterance.lang = detectedLang;
+      
+      // 최적의 음성 선택 (영어 우선)
+      const selectedVoice = selectBestVoice(detectedLang);
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        console.log('선택된 음성:', selectedVoice.name, `(${selectedVoice.lang})`);
+      }
+      
+      // 영어 음성 최적화 설정
+      if (detectedLang === 'en-US') {
+        utterance.rate = 1.0; // 읽기 속도 (0.1 ~ 10)
+        utterance.pitch = 1.0; // 음높이 (0 ~ 2)
+        utterance.volume = 1.0; // 볼륨 (0 ~ 1)
+      } else {
+        // 한국어 설정
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+      }
+      
+      // 에러 처리
+      utterance.onerror = (event) => {
+        console.error('TTS 오류:', event);
+        addLog('error', 'TTS 재생 오류', event);
+      };
+      
+      // 완료 처리
+      utterance.onend = () => {
+        console.log('TTS 재생 완료:', text, `(언어: ${detectedLang})`);
+      };
+      
+      window.speechSynthesis.speak(utterance);
+      const voiceInfo = selectedVoice ? ` - ${selectedVoice.name}` : '';
+      addLog('info', `TTS 재생: "${text}" (${detectedLang}${voiceInfo})`);
+    } catch (error) {
+      console.error('TTS 초기화 오류:', error);
+      addLog('error', 'TTS 초기화 오류', error);
+    }
+  };
+
   // 현재 웹 단어를 입력 문장으로 커밋 (다음 더블클릭)
   const handleCommitCurrentWebWord = () => {
     if (webInputBuffer.length === 0) {
@@ -998,6 +1115,9 @@ function App() {
       return;
     }
 
+    // 단어 텍스트 추출
+    const wordText = patternsToText(wordPatterns);
+
     // 문장에 단어 패턴 추가 후 공백 추가
     const spacePattern = createSpacePattern('web');
     setCurrentSentenceSequence(prev => [...prev, ...wordPatterns, spacePattern]);
@@ -1015,7 +1135,10 @@ function App() {
     // 버퍼에서 현재 단어 제거
     setWebInputBuffer(prev => prev.slice(0, start));
 
-    addLog('success', `현재 단어 커밋: "${patternsToText(wordPatterns)}"`);
+    addLog('success', `현재 단어 커밋: "${wordText}"`);
+    
+    // TTS로 단어 읽기
+    speakText(wordText);
   };
 
   const handleClearData = () => {
