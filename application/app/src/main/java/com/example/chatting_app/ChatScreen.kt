@@ -9,10 +9,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.input.pointer.awaitEachGesture
-import androidx.compose.ui.input.pointer.awaitFirstDown
-import androidx.compose.ui.input.pointer.awaitUp
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.*
@@ -263,37 +259,21 @@ private fun SightedUserInput(
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            // 음성 입력 (위쪽) - 버튼을 누르고 있을 때만 인식
+            // 음성 입력 (위쪽) - 버튼 클릭 시 음성 인식 시작
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .pointerInput(isActive) {
-                            awaitEachGesture {
-                                // 버튼을 누르기를 기다림
-                                val down = awaitFirstDown()
-                                // 버튼을 누르면 음성 인식 시작
-                                if (isActive) {
-                                    onVoiceStart()
-                                }
-                                // 버튼을 떼기를 기다림
-                                awaitUp(down)
-                                // 버튼을 떼면 음성 인식 중지
-                                if (isActive) {
-                                    onVoiceStop()
-                                }
-                            }
+                Button(
+                    onClick = {
+                        if (isActive) {
+                            onVoiceStart()
                         }
+                    },
+                    modifier = Modifier.alpha(if (isActive) micAlpha else 0.5f),
+                    enabled = isActive
                 ) {
-                    Button(
-                        onClick = { /* pointerInput에서 처리함 */ },
-                        modifier = Modifier.alpha(if (isActive) micAlpha else 0.5f),
-                        enabled = isActive
-                    ) {
-                        Text(if (isListening) "음성 입력 중..." else "음성 입력\n(누르고 있기)")
-                    }
+                    Text(if (isListening) "음성 입력 중..." else "음성 입력")
                 }
             }
             
