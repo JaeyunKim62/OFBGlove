@@ -55,8 +55,6 @@ function App() {
   const [isInputMode, setIsInputMode] = useState(true); // 점자 입력 모드 (기본 활성화)
   const [inputPatterns, setInputPatterns] = useState<BraillePattern[]>([]); // 입력된 점자 패턴들
   const [webInputBuffer, setWebInputBuffer] = useState<BraillePattern[]>([]); // 웹 입력 버퍼(전송 전까지 대기)
-  // 장갑 배경 조정 상태
-  const [showGloveControls, setShowGloveControls] = useState(false);
   const [glovePosX, setGlovePosX] = useState(30); // % (좌측 기준)
   const [glovePosY, setGlovePosY] = useState(50); // % (상단 기준)
   const [gloveScale, setGloveScale] = useState(100); // % (contain 유사 효과)
@@ -1234,39 +1232,7 @@ function App() {
               isEnabled={isInputMode}
               gloveBg={{ posX: glovePosX, posY: glovePosY, scale: gloveScale, opacity: gloveOpacity }}
             />
-            {/* 배경 조정 토글 & 컨트롤 (입력 영역 하단) */}
-            <div style={{ marginTop: 12 }}>
-              <button 
-                className="popup-btn"
-                onClick={() => setShowGloveControls(!showGloveControls)}
-              >
-                🧤 배경 조정 {showGloveControls ? '닫기' : '열기'}
-              </button>
-            </div>
-            {showGloveControls && (
-              <div className="glove-controls" style={{ marginTop: 10 }}>
-                <div className="row">
-                  <label>X 위치</label>
-                  <input type="range" min={-50} max={100} step={1} value={glovePosX} onChange={(e) => setGlovePosX(Number(e.target.value))} />
-                  <span>{glovePosX}%</span>
-                </div>
-                <div className="row">
-                  <label>Y 위치</label>
-                  <input type="range" min={0} max={100} step={1} value={glovePosY} onChange={(e) => setGlovePosY(Number(e.target.value))} />
-                  <span>{glovePosY}%</span>
-                </div>
-                <div className="row">
-                  <label>크기</label>
-                  <input type="range" min={20} max={150} step={1} value={gloveScale} onChange={(e) => setGloveScale(Number(e.target.value))} />
-                  <span>{gloveScale}%</span>
-                </div>
-                <div className="row">
-                  <label>투명도</label>
-                  <input type="range" min={0} max={1} step={0.05} value={gloveOpacity} onChange={(e) => setGloveOpacity(Number(e.target.value))} />
-                  <span>{Math.round(gloveOpacity * 100)}%</span>
-                </div>
-              </div>
-            )}
+            {/* 배경 조정 컨트롤은 데모에서 숨김 */}
           </div>
         )}
       </main>

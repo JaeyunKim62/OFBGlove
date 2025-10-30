@@ -1,5 +1,6 @@
 /* 점자 입력 컴포넌트 스타일 */
 .braille-input {
+  height: 440px;
   background: white;
   border: 2px solid #dee2e6;
   border-radius: 12px;
@@ -66,14 +67,17 @@
   background: transparent;
   border: 0px;
   padding: 0px;
+  padding-top: 130px;
+  padding-left: 10px;
   border: 0px solid #e9ecef;
+  background-position: 20px 30px;
 }
 
 .braille-input-dot {
   position: relative;
   background: white;
   border: 2px solid #dee2e6;
-  border-radius: 50%;
+  border-radius: 30%;
   display: flex;
   align-items: center;
   justify-content: center;
