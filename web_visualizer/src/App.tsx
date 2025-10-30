@@ -469,8 +469,37 @@ function App() {
 
     // 입력된 패턴을 상태에 추가
     setInputPatterns(prev => [...prev, newPattern]);
-    // 웹 입력은 전송 시점까지 버퍼에만 저장
-    setWebInputBuffer(prev => [...prev, newPattern]);
+    // 웹 입력은 전송 시점까지 버퍼에만 저장 + 공백 2회 연속 시 단어 커밋
+    setWebInputBuffer(prev => {
+      const proposed = [...prev, newPattern];
+      const len = proposed.length;
+      const isSpace = (p: BraillePattern) => p.binary === '000000';
+      if (len >= 2 && isSpace(proposed[len - 1]) && isSpace(proposed[len - 2])) {
+        // 현재 단어 범위 계산 (마지막 두 공백 이전의 연속 단어)
+        let start = len - 2; // 두 공백 앞부터
+        for (let i = len - 3; i >= 0; i--) {
+          if (isSpace(proposed[i])) { start = i + 1; break; }
+          if (i === 0) start = 0;
+        }
+        const wordPatterns = proposed.slice(start, len - 2).filter(p => !isSpace(p));
+        if (wordPatterns.length > 0) {
+          const spacePattern = createSpacePattern('web');
+          setCurrentSentenceSequence(seq => [...seq, ...wordPatterns, spacePattern]);
+          setBrailleSequence(seq => [...seq, ...wordPatterns, spacePattern]);
+          setSequenceWithSeparators(seq => [
+            ...seq,
+            ...wordPatterns.map(p => ({ type: 'braille', pattern: p })),
+            { type: 'braille', pattern: spacePattern }
+          ]);
+          wordPatterns.forEach(p => dataCollectorRef.current?.addPattern(p));
+          dataCollectorRef.current?.addPattern(spacePattern);
+          addLog('success', `공백×2 커밋: "${patternsToText(wordPatterns)}"`);
+          // 버퍼는 커밋된 단어 이전까지만 유지 (트리거 공백 2개는 소모)
+          return proposed.slice(0, start);
+        }
+      }
+      return proposed;
+    });
     
     // 데이터 수집기는 데모 화면 최소화 정책으로 웹 입력 버퍼 단계에서는 추가하지 않음
     
@@ -950,6 +979,45 @@ function App() {
     setWebInputBuffer([]);
   };
 
+  // 현재 웹 단어를 입력 문장으로 커밋 (다음 더블클릭)
+  const handleCommitCurrentWebWord = () => {
+    if (webInputBuffer.length === 0) {
+      addLog('warning', '커밋할 단어가 없습니다');
+      return;
+    }
+
+    // 버퍼 내 마지막 공백 이후부터 현재 단어 추출
+    let start = webInputBuffer.length - 1;
+    for (let i = webInputBuffer.length - 1; i >= 0; i--) {
+      if (webInputBuffer[i].binary === '000000') { start = i + 1; break; }
+      if (i === 0) start = 0;
+    }
+    const wordPatterns = webInputBuffer.slice(start).filter(p => p.binary !== '000000');
+    if (wordPatterns.length === 0) {
+      addLog('warning', '현재 단어가 비어있습니다');
+      return;
+    }
+
+    // 문장에 단어 패턴 추가 후 공백 추가
+    const spacePattern = createSpacePattern('web');
+    setCurrentSentenceSequence(prev => [...prev, ...wordPatterns, spacePattern]);
+    setBrailleSequence(prev => [...prev, ...wordPatterns, spacePattern]);
+    setSequenceWithSeparators(prev => [
+      ...prev,
+      ...wordPatterns.map(p => ({ type: 'braille', pattern: p })),
+      { type: 'braille', pattern: spacePattern }
+    ]);
+
+    // 데이터 수집 반영
+    wordPatterns.forEach(p => dataCollectorRef.current?.addPattern(p));
+    dataCollectorRef.current?.addPattern(spacePattern);
+
+    // 버퍼에서 현재 단어 제거
+    setWebInputBuffer(prev => prev.slice(0, start));
+
+    addLog('success', `현재 단어 커밋: "${patternsToText(wordPatterns)}"`);
+  };
+
   const handleClearData = () => {
     dataCollectorRef.current?.clearData();
   };
@@ -992,6 +1060,7 @@ function App() {
   })();
   const lastBufferedIsSpace = webInputBuffer.length > 0 && webInputBuffer[webInputBuffer.length - 1].binary === '000000';
   const webBufferPreview = webInputBuffer.map(p => (p.binary === '000000' ? '␣' : (p.character || '?'))).join('');
+  const showOutputSentence = currentSentenceSequence.some(p => p.source !== 'web');
 
   return (
     <div className="App">
@@ -1033,21 +1102,15 @@ function App() {
           {/* 텍스트 해석 */}
           <div className="text-output">
             <div className="text-row">
-              {/* <span className="text-label">현재 단어(웹):</span> */}
-              {/* <span className="text-value">{currentWebWordText || (lastBufferedIsSpace ? '␣' : '—')}</span> */}
+              <span className="text-label">현재 단어:</span>
+              <span className="text-value">{currentWebWordText || (lastBufferedIsSpace ? '␣' : '')}</span>
             </div>
-            {webInputBuffer.length > 0 && (
-              <div className="text-row">
-                <span className="text-label">입력 단어:</span>
-                <span className="text-value">{webBufferPreview}</span>
-              </div>
-            )}
             <div className="text-row">
               <h4>입력 문장</h4>
               <span className="text-value sentence">{sentenceTextAll || '—'}</span>
             </div>
           </div>
-          {/* 현재 문장 시퀀스 표시 */}
+          {showOutputSentence && (
           <div className="current-sentence-section">
             <div className="section-header">
               <div className="sentence-title-section">
@@ -1160,6 +1223,7 @@ function App() {
               </div>
             )}
           </div>
+          )}
         </div>
 
         {/* 점자 입력 섹션 - 메인 화면에 직접 표시 */}
@@ -1169,6 +1233,7 @@ function App() {
               onPatternComplete={handleBraillePatternComplete}
               onPatternChange={handleBraillePatternChange}
               onSend={handleSendBufferedWebInput}
+              onCommitWord={handleCommitCurrentWebWord}
               isEnabled={isInputMode}
               gloveBg={{ posX: glovePosX, posY: glovePosY, scale: gloveScale, opacity: gloveOpacity }}
             />

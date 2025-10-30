@@ -224,6 +224,20 @@ html, body, #root {
   font-weight: 600;
 }
 
+/* 크기 조정: 현재 단어/입력 문장/출력 문장 */
+.text-value.current-word-value {
+  font-size: 1.4rem;
+  line-height: 1.6;
+  padding: 8px 14px;
+}
+
+.text-value.sentence {
+  width: 100%;
+  text-align: left;
+  font-size: 1.15rem;
+  line-height: 1.8;
+}
+
 .text-value.sentence {
   width: 100%;
   text-align: left;
@@ -1194,7 +1208,7 @@ html, body, #root {
 
 .sentence-character-item {
   display: inline-block;
-  font-size: 1.2rem;
+  font-size: 1.05rem; /* 출력 문장 글자 크기 약간 작게 */
   font-weight: bold;
   color: #333;
   text-align: center;

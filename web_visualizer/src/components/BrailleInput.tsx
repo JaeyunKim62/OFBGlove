@@ -6,6 +6,7 @@ interface BrailleInputProps {
   onPatternComplete: (pattern: BrailleDot[]) => void;
   onPatternChange: (pattern: BrailleDot[]) => void;
   onSend?: () => void; // 전체 문장 전송 트리거
+  onCommitWord?: () => void; // 현재 단어를 문장에 커밋 (더블클릭)
   isEnabled?: boolean;
   gloveBg?: { posX: number; posY: number; scale: number; opacity: number };
 }
@@ -14,6 +15,7 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
   onPatternComplete,
   onPatternChange,
   onSend,
+  onCommitWord,
   isEnabled = true,
   gloveBg
 }) => {
@@ -73,6 +75,24 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
     initializePattern();
   };
 
+  // 다음 버튼: 단일 클릭은 confirm, 더블클릭은 단어 커밋 (리렌더에도 유지)
+  const nextClickTimerRef = React.useRef<number | null>(null);
+  const nextDelayMs = 450;
+  const handleNextClick = () => {
+    if (!isEnabled) return;
+    if (nextClickTimerRef.current) {
+      window.clearTimeout(nextClickTimerRef.current);
+      nextClickTimerRef.current = null;
+      if (onCommitWord) onCommitWord();
+      initializePattern();
+    } else {
+      nextClickTimerRef.current = window.setTimeout(() => {
+        confirmAndNext();
+        nextClickTimerRef.current = null;
+      }, nextDelayMs);
+    }
+  };
+
 
 
   // 활성 점 수 표시는 데모에서 사용하지 않음
@@ -125,7 +145,7 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
 
       <div className="braille-input-controls">
         <div className="input-controls">
-          <button onClick={confirmAndNext} className="control-btn confirm-btn">다음</button>
+          <button onClick={handleNextClick} className="control-btn confirm-btn">다음</button>
         </div>
       </div>
 
