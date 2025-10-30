@@ -75,7 +75,7 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
 
 
 
-  const activeDotsCount = currentPattern.filter(dot => dot.isActive).length;
+  // 활성 점 수 표시는 데모에서 사용하지 않음
 
   return (
     <div className={`braille-input ${isInputMode ? 'input-active' : ''}`}>
@@ -117,17 +117,11 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
               data-dot-id={pos.id}
             >
               <div className="braille-input-dot-inner" />
-              <div className="braille-input-dot-label">{pos.id}</div>
             </div>
           );
         })}
       </div>
-
-      <div className="braille-input-info">
-        <div className="pattern-count">
-          활성 점: {activeDotsCount}/6
-        </div>
-      </div>
+      
 
       <div className="braille-input-controls">
         <div className="input-controls">
@@ -152,9 +146,7 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
         </div>
       </div>
 
-      <div className="braille-input-help">
-        <p>사용법: 점 클릭으로 선택 → 다음(셀 확정) → 전송(문장 확정)</p>
-      </div>
+      
     </div>
   );
 };

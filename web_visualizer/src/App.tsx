@@ -57,10 +57,10 @@ function App() {
   const [webInputBuffer, setWebInputBuffer] = useState<BraillePattern[]>([]); // 웹 입력 버퍼(전송 전까지 대기)
   // 장갑 배경 조정 상태
   const [showGloveControls, setShowGloveControls] = useState(false);
-  const [glovePosX, setGlovePosX] = useState(0); // % (좌측 기준)
+  const [glovePosX, setGlovePosX] = useState(30); // % (좌측 기준)
   const [glovePosY, setGlovePosY] = useState(50); // % (상단 기준)
-  const [gloveScale, setGloveScale] = useState(60); // % (contain 유사 효과)
-  const [gloveOpacity, setGloveOpacity] = useState(0.35); // 0~1
+  const [gloveScale, setGloveScale] = useState(100); // % (contain 유사 효과)
+  const [gloveOpacity, setGloveOpacity] = useState(1); // 0~1
   
   const wsServiceRef = useRef<WebSocketService | null>(null);
   const dataCollectorRef = useRef<DataCollector | null>(null);
@@ -992,6 +992,8 @@ function App() {
     }
     return patternsToText(webInputBuffer.slice(start)).replace(/\?/g, '');
   })();
+  const lastBufferedIsSpace = webInputBuffer.length > 0 && webInputBuffer[webInputBuffer.length - 1].binary === '000000';
+  const webBufferPreview = webInputBuffer.map(p => (p.binary === '000000' ? '␣' : (p.character || '?'))).join('');
 
   return (
     <div className="App">
@@ -1094,8 +1096,14 @@ function App() {
           <div className="text-output">
             <div className="text-row">
               <span className="text-label">현재 단어(웹):</span>
-              <span className="text-value">{currentWebWordText || '—'}</span>
+              <span className="text-value">{currentWebWordText || (lastBufferedIsSpace ? '␣' : '—')}</span>
             </div>
+            {webInputBuffer.length > 0 && (
+              <div className="text-row">
+                <span className="text-label">웹 버퍼:</span>
+                <span className="text-value">{webBufferPreview}</span>
+              </div>
+            )}
             <div className="text-row">
               <span className="text-label">전체 문장:</span>
               <span className="text-value sentence">{sentenceTextAll || '—'}</span>

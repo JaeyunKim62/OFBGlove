@@ -60,13 +60,13 @@
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr 1fr;
   gap: 8px;
-  width: 120px;
-  height: 180px;
+  width: 100px;
+  height: 150px;
   margin: 0 auto 20px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 12px;
-  border: 2px solid #e9ecef;
+  background: transparent;
+  border: 0px;
+  padding: 0px;
+  border: 0px solid #e9ecef;
 }
 
 .braille-input-dot {
