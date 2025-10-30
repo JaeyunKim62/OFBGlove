@@ -54,6 +54,13 @@ function App() {
   });
   const [isInputMode, setIsInputMode] = useState(true); // 점자 입력 모드 (기본 활성화)
   const [inputPatterns, setInputPatterns] = useState<BraillePattern[]>([]); // 입력된 점자 패턴들
+  const [webInputBuffer, setWebInputBuffer] = useState<BraillePattern[]>([]); // 웹 입력 버퍼(전송 전까지 대기)
+  // 장갑 배경 조정 상태
+  const [showGloveControls, setShowGloveControls] = useState(false);
+  const [glovePosX, setGlovePosX] = useState(0); // % (좌측 기준)
+  const [glovePosY, setGlovePosY] = useState(50); // % (상단 기준)
+  const [gloveScale, setGloveScale] = useState(60); // % (contain 유사 효과)
+  const [gloveOpacity, setGloveOpacity] = useState(0.35); // 0~1
   
   const wsServiceRef = useRef<WebSocketService | null>(null);
   const dataCollectorRef = useRef<DataCollector | null>(null);
@@ -464,19 +471,13 @@ function App() {
 
     // 입력된 패턴을 상태에 추가
     setInputPatterns(prev => [...prev, newPattern]);
+    // 웹 입력은 전송 시점까지 버퍼에만 저장
+    setWebInputBuffer(prev => [...prev, newPattern]);
     
-    // 현재 문장 시퀀스에도 추가
-    setCurrentSentenceSequence(prev => [...prev, newPattern]);
+    // 데이터 수집기는 데모 화면 최소화 정책으로 웹 입력 버퍼 단계에서는 추가하지 않음
     
-    // 전체 시퀀스에도 추가
-    setBrailleSequence(prev => [...prev, newPattern]);
-    setSequenceWithSeparators(prev => [...prev, { type: 'braille', pattern: newPattern }]);
-    
-    // 데이터 수집기에 추가
-    dataCollectorRef.current?.addPattern(newPattern);
-    
-    // 로그 추가
-    addLog('success', `점자 패턴 입력 완료: ${newPattern.binary} (${newPattern.character})`, newPattern);
+    // 로그 추가 (웹 입력 버퍼 적재)
+    addLog('success', `웹 입력(버퍼): ${newPattern.binary} (${newPattern.character})`, newPattern);
     
     // 입력 모드는 계속 유지 - setIsInputMode(false) 제거
   };
@@ -925,6 +926,32 @@ function App() {
     }
   };
 
+  // 웹 입력 버퍼 전송(문장 확정)
+  const handleSendBufferedWebInput = () => {
+    if (webInputBuffer.length === 0) {
+      addLog('warning', '전송할 웹 입력이 없습니다');
+      return;
+    }
+
+    // currentSentenceSequence, brailleSequence, sequenceWithSeparators에 일괄 반영
+    setCurrentSentenceSequence(prev => [...prev, ...webInputBuffer]);
+    setBrailleSequence(prev => [...prev, ...webInputBuffer]);
+    setSequenceWithSeparators(prev => [
+      ...prev,
+      ...webInputBuffer.map(p => ({ type: 'braille', pattern: p }))
+    ]);
+
+    // 데이터 수집기 반영
+    webInputBuffer.forEach(p => dataCollectorRef.current?.addPattern(p));
+
+    addLog('info', `웹 입력 전송: ${webInputBuffer.length}개 패턴 적용`, {
+      count: webInputBuffer.length
+    });
+
+    // 전송 후 버퍼 초기화
+    setWebInputBuffer([]);
+  };
+
   const handleClearData = () => {
     dataCollectorRef.current?.clearData();
   };
@@ -944,6 +971,28 @@ function App() {
     }
   };
 
+  // 유틸: 패턴 배열을 텍스트로 변환(000000은 공백)
+  const patternsToText = (patterns: BraillePattern[]) => {
+    return patterns.map(p => (p.binary === '000000' ? ' ' : (p.character || '?'))).join('');
+  };
+
+  // 현재 문장 텍스트(전체, 소스별)
+  const sentenceTextAll = patternsToText(currentSentenceSequence);
+  const sentenceTextEsp32 = patternsToText(currentSentenceSequence.filter(p => p.source === 'esp32'));
+  const sentenceTextWeb = patternsToText(currentSentenceSequence.filter(p => p.source === 'web'));
+
+  // 현재 단어 텍스트(웹 입력 버퍼 기준)
+  const currentWebWordText = (() => {
+    if (webInputBuffer.length === 0) return '';
+    // 버퍼 내 마지막 공백 이후의 연속 패턴들만 단어로 간주
+    let start = webInputBuffer.length - 1;
+    for (let i = webInputBuffer.length - 1; i >= 0; i--) {
+      if (webInputBuffer[i].binary === '000000') { start = i + 1; break; }
+      if (i === 0) start = 0;
+    }
+    return patternsToText(webInputBuffer.slice(start)).replace(/\?/g, '');
+  })();
+
   return (
     <div className="App">
       <header className="App-header">
@@ -959,13 +1008,6 @@ function App() {
               </button>
             )}
           </div>
-          <button 
-            onClick={() => setShowDataPanel(true)} 
-            className="data-collection-btn"
-            title="데이터 수집"
-          >
-            📊 데이터 수집
-          </button>
         </div>
       </header>
 
@@ -1048,6 +1090,17 @@ function App() {
         </div>
 
         <div className="sentence-panel">
+          {/* 텍스트 해석 */}
+          <div className="text-output">
+            <div className="text-row">
+              <span className="text-label">현재 단어(웹):</span>
+              <span className="text-value">{currentWebWordText || '—'}</span>
+            </div>
+            <div className="text-row">
+              <span className="text-label">전체 문장:</span>
+              <span className="text-value sentence">{sentenceTextAll || '—'}</span>
+            </div>
+          </div>
           {/* 현재 문장 시퀀스 표시 */}
           <div className="current-sentence-section">
             <div className="section-header">
@@ -1169,8 +1222,43 @@ function App() {
             <BrailleInput
               onPatternComplete={handleBraillePatternComplete}
               onPatternChange={handleBraillePatternChange}
+              onSend={handleSendBufferedWebInput}
               isEnabled={isInputMode}
+              gloveBg={{ posX: glovePosX, posY: glovePosY, scale: gloveScale, opacity: gloveOpacity }}
             />
+            {/* 배경 조정 토글 & 컨트롤 (입력 영역 하단) */}
+            <div style={{ marginTop: 12 }}>
+              <button 
+                className="popup-btn"
+                onClick={() => setShowGloveControls(!showGloveControls)}
+              >
+                🧤 배경 조정 {showGloveControls ? '닫기' : '열기'}
+              </button>
+            </div>
+            {showGloveControls && (
+              <div className="glove-controls" style={{ marginTop: 10 }}>
+                <div className="row">
+                  <label>X 위치</label>
+                  <input type="range" min={-50} max={100} step={1} value={glovePosX} onChange={(e) => setGlovePosX(Number(e.target.value))} />
+                  <span>{glovePosX}%</span>
+                </div>
+                <div className="row">
+                  <label>Y 위치</label>
+                  <input type="range" min={0} max={100} step={1} value={glovePosY} onChange={(e) => setGlovePosY(Number(e.target.value))} />
+                  <span>{glovePosY}%</span>
+                </div>
+                <div className="row">
+                  <label>크기</label>
+                  <input type="range" min={20} max={150} step={1} value={gloveScale} onChange={(e) => setGloveScale(Number(e.target.value))} />
+                  <span>{gloveScale}%</span>
+                </div>
+                <div className="row">
+                  <label>투명도</label>
+                  <input type="range" min={0} max={1} step={0.05} value={gloveOpacity} onChange={(e) => setGloveOpacity(Number(e.target.value))} />
+                  <span>{Math.round(gloveOpacity * 100)}%</span>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>

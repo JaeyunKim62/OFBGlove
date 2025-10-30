@@ -5,17 +5,20 @@ import './BrailleInput.css';
 interface BrailleInputProps {
   onPatternComplete: (pattern: BrailleDot[]) => void;
   onPatternChange: (pattern: BrailleDot[]) => void;
+  onSend?: () => void; // 전체 문장 전송 트리거
   isEnabled?: boolean;
+  gloveBg?: { posX: number; posY: number; scale: number; opacity: number };
 }
 
 export const BrailleInput: React.FC<BrailleInputProps> = ({
   onPatternComplete,
   onPatternChange,
-  isEnabled = true
+  onSend,
+  isEnabled = true,
+  gloveBg
 }) => {
   const [currentPattern, setCurrentPattern] = useState<BrailleDot[]>([]);
   const [isInputMode, setIsInputMode] = useState(true);
-  const [inputStep, setInputStep] = useState<'select' | 'confirm' | 'complete'>('select');
 
   // 표준 점자 셀 배치 (2×3 그리드)
   const cellPositions = [
@@ -60,32 +63,14 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
 
   // 패턴 초기화
   const resetPattern = () => {
-    setInputStep('select');
     initializePattern();
   };
 
-  // 패턴 확인
-  const confirmPattern = () => {
-    if (currentPattern.some(dot => dot.isActive)) {
-      setInputStep('confirm');
-    }
-  };
-
-  // 패턴 전송
-  const sendPattern = () => {
+  // 다음(셀 확정) - 공백 포함
+  const confirmAndNext = () => {
+    if (!isEnabled) return;
     onPatternComplete(currentPattern);
-    setInputStep('complete');
-    
-    // 자동으로 새로운 입력 시작
-    setTimeout(() => {
-      initializePattern();
-      setInputStep('select');
-    }, 1000); // 1초 후 자동으로 새 입력 시작
-  };
-
-  // 패턴 수정 (확인 단계에서 선택 단계로 돌아가기)
-  const editPattern = () => {
-    setInputStep('select');
+    initializePattern();
   };
 
 
@@ -94,6 +79,16 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
 
   return (
     <div className={`braille-input ${isInputMode ? 'input-active' : ''}`}>
+      {/* 장갑 배경 (입력 카드 내부) */}
+      <div 
+        className="glove-bg"
+        style={{
+          backgroundImage: 'url(/glove.png)',
+          backgroundPosition: `${gloveBg?.posX ?? 0}% ${gloveBg?.posY ?? 50}%`,
+          backgroundSize: `${gloveBg?.scale ?? 60}% auto`,
+          opacity: gloveBg?.opacity ?? 0.35
+        }}
+      />
       <div className="braille-input-header">
         <h4>점자 입력</h4>
         <div className="input-status">
@@ -136,51 +131,29 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
 
       <div className="braille-input-controls">
         <div className="input-controls">
-          {inputStep === 'select' && (
-            <>
-              <button 
-                onClick={confirmPattern}
-                className="control-btn confirm-btn"
-                disabled={activeDotsCount === 0}
-              >
-                확인
-              </button>
-              <button 
-                onClick={resetPattern}
-                className="control-btn cancel-btn"
-              >
-                초기화
-              </button>
-            </>
-          )}
-          
-          {inputStep === 'confirm' && (
-            <>
-              <button 
-                onClick={sendPattern}
-                className="control-btn complete-btn"
-              >
-                전송
-              </button>
-              <button 
-                onClick={editPattern}
-                className="control-btn cancel-btn"
-              >
-                수정
-              </button>
-            </>
-          )}
-          
-          {inputStep === 'complete' && (
-            <div className="completion-message">
-              ✅ 전송 완료! 새 입력 준비 중...
-            </div>
-          )}
+          <button 
+            onClick={confirmAndNext}
+            className="control-btn confirm-btn"
+          >
+            다음
+          </button>
+          <button 
+            onClick={onSend}
+            className="control-btn complete-btn"
+          >
+            전송
+          </button>
+          <button 
+            onClick={resetPattern}
+            className="control-btn cancel-btn"
+          >
+            초기화
+          </button>
         </div>
       </div>
 
       <div className="braille-input-help">
-        <p>사용법: 점을 클릭하여 활성화/비활성화 → 확인 → 전송</p>
+        <p>사용법: 점 클릭으로 선택 → 다음(셀 확정) → 전송(문장 확정)</p>
       </div>
     </div>
   );

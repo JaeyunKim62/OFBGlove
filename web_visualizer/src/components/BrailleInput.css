@@ -7,6 +7,14 @@
   margin: 20px 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
+  position: relative; /* 내부 배경 배치 */
+  overflow: hidden;
+}
+
+/* 내부 배경 아래로 보내기 */
+.braille-input > *:not(.glove-bg) {
+  position: relative;
+  z-index: 1;
 }
 
 .braille-input.input-active {
