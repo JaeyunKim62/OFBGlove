@@ -81,7 +81,7 @@ export const ConnectionInfo: React.FC<ConnectionInfoProps> = ({ onIPDetected, ws
   };
 
   const blockClient = (address: string) => {
-    if (wsService && confirm(`클라이언트 ${address}를 차단하시겠습니까?`)) {
+    if (wsService && window.confirm(`클라이언트 ${address}를 차단하시겠습니까?`)) {
       wsService.send({
         type: 'block_client',
         address: address
@@ -91,7 +91,7 @@ export const ConnectionInfo: React.FC<ConnectionInfoProps> = ({ onIPDetected, ws
   };
 
   const unblockClient = (address: string) => {
-    if (wsService && confirm(`클라이언트 ${address}의 차단을 해제하시겠습니까?`)) {
+    if (wsService && window.confirm(`클라이언트 ${address}의 차단을 해제하시겠습니까?`)) {
       wsService.send({
         type: 'unblock_client',
         address: address
