@@ -1024,77 +1024,17 @@ function App() {
             />
           </div>
           
-          {/* 점자 셀 아래 큰 이전/다음 버튼 - 항상 표시 */}
-          <div className="word-nav-buttons-large">
-            <button 
-              onClick={navigateToPreviousWord}
-              className="nav-btn-large prev-btn-large"
-              title="이전 단어"
-              disabled={wordSequence.length === 0 || currentWordIndex === 0}
-            >
-              <span className="nav-icon">⏮</span>
-              <span className="nav-text">이전</span>
-            </button>
-            <button 
-              onClick={navigateToNextWord}
-              className="nav-btn-large next-btn-large"
-              title="다음 단어"
-              disabled={wordSequence.length === 0 || currentWordIndex >= wordSequence.length - 1}
-            >
-              <span className="nav-text">다음</span>
-              <span className="nav-icon">⏭</span>
-            </button>
-          </div>
+          {/* 데모 간소화: 상단 이전/다음 대형 버튼 숨김 */}
           
-          {/* 단어 네비게이션 컨트롤 */}
-          {wordSequence.length > 0 && (
-            <div className="navigation-controls">
-              <div className="navigation-info">
-                단어 {currentWordIndex + 1} / {wordSequence.length}
-                {wordSequence[currentWordIndex] && (
-                  <span className="current-word">
-                    ({wordSequence[currentWordIndex].map(p => p.character).join('')})
-                  </span>
-                )}
-                {isPlayingWord && (
-                  <span className="playing-indicator">🔄 반복 재생 중</span>
-                )}
-              </div>
-              <div className="navigation-buttons">
-                <button 
-                  onClick={navigateToPreviousWord}
-                  className="nav-btn prev-btn"
-                  title="이전 단어"
-                  disabled={currentWordIndex === 0}
-                >
-                  ⏪ 이전 단어
-                </button>
-                <button 
-                  onClick={isPlayingWord ? stopWordPlayback : () => playWordRepeat(currentWordIndex)}
-                  className={`nav-btn ${isPlayingWord ? 'stop-btn' : 'play-btn'}`}
-                  title={isPlayingWord ? "단어 재생 중지" : "단어 재생 시작"}
-                >
-                  {isPlayingWord ? '⏹️ 중지' : '▶️ 재생'}
-                </button>
-                <button 
-                  onClick={navigateToNextWord}
-                  className="nav-btn next-btn"
-                  title="다음 단어"
-                  disabled={currentWordIndex >= wordSequence.length - 1}
-                >
-                  다음 단어 ⏩
-                </button>
-              </div>
-            </div>
-          )}
+          {/* 데모 간소화: 단어 네비게이션 컨트롤 숨김 */}
         </div>
 
         <div className="sentence-panel">
           {/* 텍스트 해석 */}
           <div className="text-output">
             <div className="text-row">
-              <span className="text-label">현재 단어(웹):</span>
-              <span className="text-value">{currentWebWordText || (lastBufferedIsSpace ? '␣' : '—')}</span>
+              {/* <span className="text-label">현재 단어(웹):</span> */}
+              {/* <span className="text-value">{currentWebWordText || (lastBufferedIsSpace ? '␣' : '—')}</span> */}
             </div>
             {webInputBuffer.length > 0 && (
               <div className="text-row">
@@ -1103,7 +1043,7 @@ function App() {
               </div>
             )}
             <div className="text-row">
-              <span className="text-label">전체 문장:</span>
+              <span className="text-label">입력 문장:</span>
               <span className="text-value sentence">{sentenceTextAll || '—'}</span>
             </div>
           </div>
@@ -1111,7 +1051,7 @@ function App() {
           <div className="current-sentence-section">
             <div className="section-header">
               <div className="sentence-title-section">
-                <h4>현재 문장 시퀀스</h4>
+                <h4>출력 문장</h4>
                 {currentSentenceSequence.length > 0 && (
                   <div className="sentence-source-stats">
                     {(() => {
