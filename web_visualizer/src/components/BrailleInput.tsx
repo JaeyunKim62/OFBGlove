@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrailleDot } from '../types/braille';
+import { BrailleDot, BraillePattern } from '../types/braille';
 import './BrailleInput.css';
 
 interface BrailleInputProps {
@@ -9,6 +9,7 @@ interface BrailleInputProps {
   onCommitWord?: () => void; // 현재 단어를 문장에 커밋 (더블클릭)
   isEnabled?: boolean;
   gloveBg?: { posX: number; posY: number; scale: number; opacity: number };
+  voicePattern?: BraillePattern | null; // 음성 입력 패턴 (esp32/demo 소스)
 }
 
 export const BrailleInput: React.FC<BrailleInputProps> = ({
@@ -17,7 +18,8 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
   onSend,
   onCommitWord,
   isEnabled = true,
-  gloveBg
+  gloveBg,
+  voicePattern
 }) => {
   const [currentPattern, setCurrentPattern] = useState<BrailleDot[]>([]);
   const [isInputMode, setIsInputMode] = useState(true);
@@ -125,16 +127,30 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
           const dot = currentPattern.find(d => d.id === pos.id);
           const isActive = dot?.isActive || false;
           
+          // 음성 입력 패턴에서도 해당 점 찾기
+          const voiceDot = voicePattern?.dots.find(d => d.id === pos.id);
+          const isVoiceActive = voiceDot?.isActive || false;
+          
+          // 입력과 음성이 모두 활성화된 경우 입력 우선
+          const showVoice = isVoiceActive && !isActive;
+          
+          // 디버깅용 로그 (음성 입력이 있을 때만)
+          if (voicePattern && pos.id === 1) {
+            console.log(`🎤 BrailleInput 렌더링: voicePattern 존재=${!!voicePattern}, 첫 번째 점 isVoiceActive=${isVoiceActive}, isActive=${isActive}, showVoice=${showVoice}`);
+          }
+          
           return (
             <div
               key={pos.id}
-              className={`braille-input-dot ${isActive ? 'active' : 'inactive'} clickable`}
+              className={`braille-input-dot ${isActive ? 'active' : 'inactive'} ${showVoice ? 'voice-active' : ''} clickable`}
               style={{
                 gridRow: pos.row,
                 gridColumn: pos.col,
               }}
               onClick={() => handleDotClick(pos.id)}
               data-dot-id={pos.id}
+              data-voice-active={isVoiceActive}
+              data-input-active={isActive}
             >
               <div className="braille-input-dot-inner" />
             </div>

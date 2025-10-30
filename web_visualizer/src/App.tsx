@@ -28,8 +28,10 @@ function App() {
   const [showSequence, setShowSequence] = useState(false);
   const [sequenceWithSeparators, setSequenceWithSeparators] = useState<any[]>([]);
   
-  // 문장 단위 시퀀스 (실시간 입력용)
+  // 문장 단위 시퀀스 (입력 문장용 - web 소스만)
   const [currentSentenceSequence, setCurrentSentenceSequence] = useState<BraillePattern[]>([]);
+  // 수신 문장 시퀀스 (음성 입력용 - esp32/demo 소스만)
+  const [receivedSentenceSequence, setReceivedSentenceSequence] = useState<BraillePattern[]>([]);
   const [isPlayingCurrentSentence, setIsPlayingCurrentSentence] = useState(false);
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
   const [displayDuration, setDisplayDuration] = useState(3000); // 기본 3초
@@ -97,6 +99,7 @@ function App() {
   // 현재 문장 시퀀스 초기화 함수
   const clearCurrentSentenceSequence = () => {
     setCurrentSentenceSequence([]);
+    setReceivedSentenceSequence([]);
     setCurrentSentenceIndex(0);
     setIsPlayingCurrentSentence(false);
   };
@@ -319,7 +322,69 @@ function App() {
     return words;
   };
 
-  // 단어 반복 재생 함수
+  // 단어 반복 재생 함수 (단어 배열을 직접 받는 버전)
+  const playWordRepeatWithWords = (wordIndex: number, words: BraillePattern[][]) => {
+    if (words.length === 0 || wordIndex >= words.length) {
+      console.log('⚠️ playWordRepeatWithWords: 유효하지 않은 wordIndex 또는 빈 단어 배열');
+      return;
+    }
+    
+    // 기존 타이머 정리
+    if (wordTimeoutRef.current) {
+      clearTimeout(wordTimeoutRef.current);
+      wordTimeoutRef.current = null;
+    }
+    if (wordRepeatTimeoutRef.current) {
+      clearTimeout(wordRepeatTimeoutRef.current);
+      wordRepeatTimeoutRef.current = null;
+    }
+    
+    const word = words[wordIndex];
+    if (!word || word.length === 0) {
+      console.log('⚠️ playWordRepeatWithWords: 빈 단어');
+      return;
+    }
+    
+    console.log(`🎬 단어 반복 재생 시작: 단어 ${wordIndex + 1}/${words.length}, 내용: "${word.map(p => p.character).join('')}", 점자 수: ${word.length}`);
+    
+    setIsPlayingWord(true);
+    setCurrentWordIndex(wordIndex);
+    
+    const playNextBraille = (brailleIndex: number) => {
+      if (brailleIndex >= word.length) {
+        // 단어 재생 완료 후 반복 (단어가 1개만 있어도 반복)
+        if (autoWordRepeat) {
+          wordRepeatTimeoutRef.current = setTimeout(() => {
+            console.log(`🔄 단어 반복: "${word.map(p => p.character).join('')}" 다시 재생`);
+            playWordRepeatWithWords(wordIndex, words); // 같은 단어 반복
+          }, 1000); // 1초 대기 후 반복
+        } else {
+          setIsPlayingWord(false);
+        }
+        return;
+      }
+      
+      const pattern = word[brailleIndex];
+      console.log(`🎯 점자 표시: ${pattern.character} (${pattern.binary}), 소스: ${pattern.source}`);
+      setBraillePattern(pattern);
+      
+      // 다음 점자로 이동 (단어 내에서의 간격)
+      const nextInterval = Math.max(200, brailleInterval / playbackSpeed);
+      
+      wordTimeoutRef.current = setTimeout(() => {
+        playNextBraille(brailleIndex + 1);
+      }, nextInterval);
+    };
+    
+    playNextBraille(0);
+    addLog('info', `단어 ${wordIndex + 1}/${words.length} 반복 재생 시작`, { 
+      wordIndex, 
+      wordLength: word.length,
+      word: word.map(p => p.character).join('')
+    });
+  };
+
+  // 단어 반복 재생 함수 (기존 버전 - wordSequence 상태 사용)
   const playWordRepeat = (wordIndex: number) => {
     if (wordSequence.length === 0 || wordIndex >= wordSequence.length) return;
     
@@ -568,15 +633,14 @@ function App() {
 
   // 현재 문장 시퀀스 재생 함수 (수신 문장만 - 음성만)
   const playCurrentSentenceSequence = (startIndex: number = 0) => {
-    // 수신 문장만 필터링 (web 소스 제외)
-    const receivedSequence = currentSentenceSequence.filter(p => p.source !== 'web');
-    if (receivedSequence.length === 0) return;
+    // 수신 문장 시퀀스 사용
+    if (receivedSentenceSequence.length === 0) return;
     
     setIsPlayingCurrentSentence(true);
     setCurrentSentenceIndex(startIndex);
     
     const playNextBraille = (index: number) => {
-      if (index >= receivedSequence.length) {
+      if (index >= receivedSentenceSequence.length) {
         setIsPlayingCurrentSentence(false);
         setBraillePattern(null);
         console.log('📝 문장 시퀀스 재생 완료');
@@ -587,8 +651,8 @@ function App() {
         return;
       }
       
-      const pattern = receivedSequence[index];
-      console.log(`📝 문장 재생: ${index + 1}/${receivedSequence.length} - ${pattern.character} (${pattern.binary})`);
+      const pattern = receivedSentenceSequence[index];
+      console.log(`📝 문장 재생: ${index + 1}/${receivedSentenceSequence.length} - ${pattern.character} (${pattern.binary})`);
       
       // 기존 타이머 클리어
       if (displayTimeoutRef.current) {
@@ -603,7 +667,7 @@ function App() {
       
       // separator 간격이 있으면 사용 (문장 내에서의 인덱스)
       // 원본 인덱스를 찾아서 separatorTimings에서 매칭
-      const originalIndex = currentSentenceSequence.findIndex(p => 
+      const originalIndex = receivedSentenceSequence.findIndex(p => 
         p.timestamp === pattern.timestamp && p.binary === pattern.binary
       );
       if (originalIndex >= 0 && separatorTimings.length > originalIndex) {
@@ -674,14 +738,14 @@ function App() {
           source: pattern.source || 'esp32'
         };
         
-        // 현재 문장 시퀀스에 추가
-        setCurrentSentenceSequence(prev => {
+        // 수신 문장 시퀀스에 추가 (음성 입력만)
+        setReceivedSentenceSequence(prev => {
           const lastPattern = prev[prev.length - 1];
           if (lastPattern && lastPattern.binary === '000000') {
-            console.log('⚠️ currentSentenceSequence에서 공백 패턴 중복 감지');
+            console.log('⚠️ receivedSentenceSequence에서 공백 패턴 중복 감지');
             return prev; // 중복이면 상태 변경 없음
           }
-          console.log('✅ currentSentenceSequence에 공백 패턴 추가');
+          console.log('✅ receivedSentenceSequence에 공백 패턴 추가');
           return [...prev, pattern];
         });
         
@@ -732,7 +796,30 @@ function App() {
         source: pattern.source || 'esp32'
       };
       
-      // 상태 업데이트
+      // 음성 입력(esp32/demo)인 경우에만 처리 (web 소스 제외)
+      const isVoiceInput = pattern.source === 'esp32' || pattern.source === 'demo';
+      
+      if (isVoiceInput) {
+        // 음성 입력 패턴을 즉시 화면에 표시
+        console.log(`🎤 음성 입력 패턴 수신 및 화면 표시: ${pattern.character} (${pattern.binary})`);
+        displayRealTimeBraillePattern(pattern);
+        
+        // 실시간 입력이 들어오면 기존 재생 중지
+        if (isPlayingSequence) {
+          console.log('🛑 실시간 입력으로 인한 전체 시퀀스 재생 중지');
+          stopBrailleSequence();
+        }
+        if (isPlayingCurrentSentence) {
+          console.log('🛑 실시간 입력으로 인한 문장 시퀀스 재생 중지');
+          stopCurrentSentenceSequence();
+        }
+        if (isPlayingWord) {
+          console.log('🛑 실시간 입력으로 인한 단어 재생 중지');
+          stopWordPlayback();
+        }
+      }
+      
+      // 상태 업데이트 (전체 시퀀스)
       setBrailleSequence(prev => [...prev, pattern]);
       
       // 중복이 아니면 sequenceWithSeparators에도 추가
@@ -750,18 +837,11 @@ function App() {
         return [...sequencePrev, { type: 'braille', pattern }];
       });
       
-      // 실시간 입력이 들어오면 기존 재생 중지
-      if (isPlayingSequence) {
-        console.log('🛑 실시간 입력으로 인한 전체 시퀀스 재생 중지');
-        stopBrailleSequence();
+      // 음성 입력은 receivedSentenceSequence에만 추가 (수신 문장에만 표시)
+      // 입력 문장에는 web 소스만 표시되도록 함
+      if (isVoiceInput) {
+        setReceivedSentenceSequence(prev => [...prev, pattern]);
       }
-      if (isPlayingCurrentSentence) {
-        console.log('🛑 실시간 입력으로 인한 문장 시퀀스 재생 중지');
-        stopCurrentSentenceSequence();
-      }
-      
-      // 현재 문장 시퀀스에 추가
-      setCurrentSentenceSequence(prev => [...prev, pattern]);
       
       // dataCollector와 로그는 한 번만 실행 (중복이 아닌 경우만)
       dataCollectorRef.current?.addPattern(pattern);
@@ -803,15 +883,15 @@ function App() {
       
       console.log('✅ 단어 구분자 추가 중 - 공백 패턴:', spacePattern);
       
-      // 현재 문장 시퀀스에 중복 체크하고 추가
-      setCurrentSentenceSequence(prev => {
+      // 음성 입력 시퀀스에만 추가 (수신 문장에만 표시)
+      setReceivedSentenceSequence(prev => {
         const lastPattern = prev[prev.length - 1];
         // 마지막 패턴이 이미 공백이면 중복
         if (lastPattern && lastPattern.binary === '000000') {
-          console.log('⚠️ currentSentenceSequence에서 단어 구분자 중복 감지:', lastPattern);
+          console.log('⚠️ receivedSentenceSequence에서 단어 구분자 중복 감지:', lastPattern);
           return prev; // 중복이면 상태 변경 없음
         }
-        console.log('✅ currentSentenceSequence에 단어 구분자 추가, 현재 길이:', prev.length, '→', prev.length + 1);
+        console.log('✅ receivedSentenceSequence에 단어 구분자 추가');
         return [...prev, spacePattern];
       });
       
@@ -848,16 +928,45 @@ function App() {
       
       console.log('📝 onSentenceSeparator 호출됨 - 문장 구분자 처리 시작');
       
-      // 현재 문장 시퀀스에 중복 체크하고 추가
-      setCurrentSentenceSequence(prev => {
+      // 수신 문장 시퀀스에 문장 구분자 추가 (음성 입력만)
+      setReceivedSentenceSequence(prev => {
         const lastPattern = prev[prev.length - 1];
         // 마지막 패턴이 이미 공백이면 중복
         if (lastPattern && lastPattern.binary === '000000') {
-          console.log('⚠️ currentSentenceSequence에서 문장 구분자 중복 감지:', lastPattern);
+          console.log('⚠️ receivedSentenceSequence에서 문장 구분자 중복 감지:', lastPattern);
           return prev; // 중복이면 상태 변경 없음
         }
-        console.log('✅ currentSentenceSequence에 문장 구분자 추가, 현재 길이:', prev.length, '→', prev.length + 1);
-        return [...prev, spacePattern];
+        
+        const fullReceivedSequence = [...prev, spacePattern];
+        
+        if (fullReceivedSequence.length > 0) {
+          console.log(`📝 문장 완성: ${fullReceivedSequence.length}개 점자, 단어별 분할 시작`);
+          
+          // 문장을 단어별로 분할
+          const words = splitSentenceIntoWords(fullReceivedSequence);
+          
+          console.log(`📝 분할된 단어 수: ${words.length}`, words.map(w => w.map(p => p.character).join('')));
+          
+          if (words.length > 0 && words[0].length > 0) {
+            // 즉시 화면에 첫 번째 단어의 첫 번째 점자 표시
+            const firstPattern = words[0][0];
+            console.log(`🎬 문장 완성 - 첫 번째 점자 즉시 표시: ${firstPattern.character} (${firstPattern.binary})`);
+            displayRealTimeBraillePattern(firstPattern);
+            
+            // 상태 업데이트 후 단어 반복 재생 시작
+            setWordSequence(words);
+            setCurrentWordIndex(0);
+            
+            // 바로 단어 반복 재생 시작 (타이머 없이 즉시)
+            setTimeout(() => {
+              console.log(`🎵 첫 번째 단어 반복 재생 시작: "${words[0].map(p => p.character).join('')}" (${words[0].length}개 점자)`);
+              playWordRepeatWithWords(0, words);
+            }, 100);
+          }
+        }
+        
+        console.log('✅ receivedSentenceSequence에 문장 구분자 추가 - 입력 문장에는 추가하지 않음');
+        return fullReceivedSequence;
       });
       
       // ref 업데이트
@@ -884,21 +993,6 @@ function App() {
       
       // dataCollector에 추가
       dataCollectorRef.current?.addPattern(spacePattern);
-      
-      // 문장 구분자 수신 시 현재 문장을 단어별로 분할하고 첫 번째 단어 반복 재생
-      if (currentSentenceSequence.length > 0) {
-        console.log(`📝 문장 완성: ${currentSentenceSequence.length}개 점자, 단어별 분할 시작`);
-        
-        // 문장을 단어별로 분할
-        const words = splitSentenceIntoWords(currentSentenceSequence);
-        setWordSequence(words);
-        setCurrentWordIndex(0);
-        
-        // 첫 번째 단어 반복 재생 시작
-        if (words.length > 0) {
-          playWordRepeat(0);
-        }
-      }
       addLog('info', '문장 구분자 수신', { type: 'sentence_separator' });
     };
 
@@ -1173,11 +1267,8 @@ function App() {
 
   // 현재 문장 텍스트(전체, 소스별)
   const sentenceTextAll = patternsToText(currentSentenceSequence);
-  const sentenceTextEsp32 = patternsToText(currentSentenceSequence.filter(p => p.source === 'esp32'));
+  const sentenceTextEsp32 = patternsToText(receivedSentenceSequence.filter(p => p.source === 'esp32'));
   const sentenceTextWeb = patternsToText(currentSentenceSequence.filter(p => p.source === 'web'));
-  
-  // 수신 문장: 음성(esp32/demo)만 필터링 (web 소스 제외)
-  const receivedSentenceSequence = currentSentenceSequence.filter(p => p.source !== 'web');
 
   // 현재 단어 텍스트(웹 입력 버퍼 기준)
   const currentWebWordText = (() => {
@@ -1221,6 +1312,7 @@ function App() {
               onDotClick={handleDotClick}
               displayMode={displayMode}
               isVisible={braillePattern !== null}
+              source={braillePattern?.source}
             />
           </div>
           
@@ -1238,7 +1330,7 @@ function App() {
             </div>
             <div className="text-row">
               <h4>입력 문장</h4>
-              <span className="text-value sentence">{sentenceTextAll || '—'}</span>
+              <span className="text-value sentence">{sentenceTextWeb || '—'}</span>
             </div>
           </div>
           <div className="current-sentence-section">
@@ -1312,7 +1404,7 @@ function App() {
                         className={`sentence-character-item ${isCurrent ? 'current-braille' : ''} source-${pattern.source}`}
                         title={`${pattern.source === 'esp32' ? 'WiFi 외부 입력' : pattern.source === 'demo' ? '데모' : '웹 직접 입력'} - ${pattern.binary}`}
                       >
-                        {pattern.binary === '000000' ? '공백' : (pattern.character || '?')}
+                        {pattern.binary === '000000' ? '⌴' : (pattern.character || '?')}
                       </span>
                     );
                   })}
@@ -1332,6 +1424,7 @@ function App() {
                           dots={pattern.dots}
                           size="tiny"
                           showLabels={false}
+                          source={pattern.source}
                         />
                       </div>
                     );
@@ -1359,6 +1452,13 @@ function App() {
               onCommitWord={handleCommitCurrentWebWord}
               isEnabled={isInputMode}
               gloveBg={{ posX: glovePosX, posY: glovePosY, scale: gloveScale, opacity: gloveOpacity }}
+              voicePattern={(() => {
+                const isVoiceSource = braillePattern && (braillePattern.source === 'esp32' || braillePattern.source === 'demo');
+                if (isVoiceSource && braillePattern) {
+                  console.log(`🎤 voicePattern 전달: ${braillePattern.character} (${braillePattern.binary}), 소스: ${braillePattern.source}`);
+                }
+                return isVoiceSource ? braillePattern : null;
+              })()}
             />
             {/* 배경 조정 컨트롤은 데모에서 숨김 */}
           </div>
@@ -1453,7 +1553,7 @@ function App() {
                   <h4>현재 패턴</h4>
                   <div className="pattern-info">
                     <div className="pattern-character">
-                      {braillePattern.binary === '000000' ? '공백' : (braillePattern.character || '?')}
+                      {braillePattern.binary === '000000' ? '⌴' : (braillePattern.character || '?')}
                     </div>
                     <div className="pattern-source">
                       소스: {braillePattern.source}
@@ -1613,6 +1713,7 @@ function App() {
                                 dots={item.pattern.dots}
                                 size="tiny"
                                 showLabels={false}
+                                source={item.pattern.source}
                               />
                             </div>
                           );

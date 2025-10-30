@@ -86,6 +86,50 @@
   transform: scale(1.1);
 }
 
+/* 웹 입력 점자 점 색상 (초록색 계열) - 모든 크기에 적용 */
+.braille-cell-dot.active.source-web {
+  background: linear-gradient(45deg, #28a745, #20c997) !important; /* 초록색 - 기본값과 동일 */
+  box-shadow: 
+    0 0 15px rgba(40, 167, 69, 0.6),
+    inset 0 2px 4px rgba(255, 255, 255, 0.3) !important;
+  border-color: #28a745 !important;
+}
+
+/* 음성 입력 점자 점 색상 (주황색 계열) - 모든 크기에 적용 */
+.braille-cell-dot.active.source-esp32,
+.braille-cell-dot.active.source-demo {
+  background: linear-gradient(135deg, #ff9800, #ff6f00) !important;
+  box-shadow: 
+    0 0 15px rgba(255, 152, 0, 0.6),
+    inset 0 2px 4px rgba(255, 255, 255, 0.3) !important;
+  border-color: #ff9800 !important;
+}
+
+/* 크기별 웹 입력 점자 점 색상 (모든 크기에 동일하게 적용) */
+.braille-cell-tiny .braille-cell-dot.active.source-web,
+.braille-cell-small .braille-cell-dot.active.source-web,
+.braille-cell-large .braille-cell-dot.active.source-web {
+  background: linear-gradient(45deg, #28a745, #20c997) !important;
+  box-shadow: 
+    0 0 15px rgba(40, 167, 69, 0.6),
+    inset 0 2px 4px rgba(255, 255, 255, 0.3) !important;
+  border-color: #28a745 !important;
+}
+
+/* 크기별 음성 입력 점자 점 색상 (모든 크기에 동일하게 적용) */
+.braille-cell-tiny .braille-cell-dot.active.source-esp32,
+.braille-cell-tiny .braille-cell-dot.active.source-demo,
+.braille-cell-small .braille-cell-dot.active.source-esp32,
+.braille-cell-small .braille-cell-dot.active.source-demo,
+.braille-cell-large .braille-cell-dot.active.source-esp32,
+.braille-cell-large .braille-cell-dot.active.source-demo {
+  background: linear-gradient(135deg, #ff9800, #ff6f00) !important;
+  box-shadow: 
+    0 0 15px rgba(255, 152, 0, 0.6),
+    inset 0 2px 4px rgba(255, 255, 255, 0.3) !important;
+  border-color: #ff9800 !important;
+}
+
 .braille-cell-dot.inactive {
   background: linear-gradient(45deg, #f8f9fa, #e9ecef);
   box-shadow: 

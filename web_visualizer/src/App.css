@@ -1227,31 +1227,30 @@ html, body, #root {
   text-align: center;
   min-width: 32px; /* 크기 증가 */
   padding: 6px 10px; /* 패딩 증가 */
-  background: white;
-  border-radius: 6px;
-  border: 2px solid #dee2e6;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: transparent !important; /* 배경색 제거 */
+  border: none !important; /* 테두리 제거 */
+  box-shadow: none !important; /* 그림자 제거 */
   margin: 2px;
   transition: all 0.3s ease;
 }
 
-/* 문장 시퀀스 소스별 스타일 */
+/* 문장 시퀀스 소스별 스타일 - 박스 배경색 제거, 텍스트 색상만 변경 */
 .sentence-character-item.source-esp32 {
-  background: #e3f2fd;
-  border-color: #2196f3;
-  color: #1976d2;
+  background: transparent !important; /* 배경색 제거 */
+  border: none !important; /* 테두리 제거 */
+  color: #ff9800 !important; /* 주황색 텍스트 */
 }
 
 .sentence-character-item.source-web {
-  background: #f3e5f5;
-  border-color: #9c27b0;
-  color: #7b1fa2;
+  background: transparent !important; /* 배경색 제거 */
+  border: none !important; /* 테두리 제거 */
+  color: #9c27b0; /* 보라색 텍스트 */
 }
 
 .sentence-character-item.source-demo {
-  background: #e8f5e8;
-  border-color: #4caf50;
-  color: #388e3c;
+  background: transparent !important; /* 배경색 제거 */
+  border: none !important; /* 테두리 제거 */
+  color: #ff9800 !important; /* 주황색 텍스트 - esp32와 동일 */
 }
 
 .sentence-braille-line {
@@ -1272,29 +1271,15 @@ html, body, #root {
 .sentence-braille-item {
   display: inline-block;
   padding: 4px; /* 패딩 증가 */
-  background: white;
-  border-radius: 6px;
-  border: 2px solid #dee2e6;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: transparent !important; /* 배경색 제거 */
+  border: none !important; /* 테두리 제거 */
+  box-shadow: none !important; /* 그림자 제거 */
   margin: 2px;
   transition: all 0.3s ease;
 }
 
-/* 문장 시퀀스 점자 아이템 소스별 스타일 */
-.sentence-braille-item.source-esp32 {
-  background: #e3f2fd;
-  border-color: #2196f3;
-}
-
-.sentence-braille-item.source-web {
-  background: #f3e5f5;
-  border-color: #9c27b0;
-}
-
-.sentence-braille-item.source-demo {
-  background: #e8f5e8;
-  border-color: #4caf50;
-}
+/* 문장 시퀀스 점자 아이템 소스별 스타일 - 박스 색상 없음, 점 내부 색상만 변경 */
+/* 점 내부 색상은 BrailleCell 컴포넌트의 CSS에서 처리됨 */
 
 /* 문장 시퀀스 헤더 스타일 */
 .sentence-title-section {

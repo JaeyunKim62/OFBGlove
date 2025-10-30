@@ -9,6 +9,7 @@ interface BrailleCellProps {
   onDotClick?: (id: number) => void;
   displayMode?: 'hide' | 'fade' | 'keep';
   isVisible?: boolean;
+  source?: 'esp32' | 'web' | 'demo'; // 점자 소스 (음성 입력 색상 구분용)
 }
 
 export const BrailleCell: React.FC<BrailleCellProps> = ({
@@ -17,7 +18,8 @@ export const BrailleCell: React.FC<BrailleCellProps> = ({
   showLabels = true,
   onDotClick,
   displayMode = 'hide',
-  isVisible = true
+  isVisible = true,
+  source
 }) => {
   // 표준 점자 셀 배치 (2×3 그리드)
   const cellPositions = [
@@ -54,7 +56,7 @@ export const BrailleCell: React.FC<BrailleCellProps> = ({
           return (
             <div
               key={pos.id}
-              className={`braille-cell-dot ${isActive ? 'active' : 'inactive'}`}
+              className={`braille-cell-dot ${isActive ? 'active' : 'inactive'} ${source ? `source-${source}` : ''}`}
               style={{
                 gridRow: pos.row,
                 gridColumn: pos.col,

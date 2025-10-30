@@ -93,14 +93,51 @@
 }
 
 .braille-input-dot.active {
-  background: #007bff;
-  border-color: #0056b3;
+  background: linear-gradient(45deg, #28a745, #20c997); /* 초록색 - 웹 입력 통일 색상 */
+  border-color: #28a745;
   color: white;
+  box-shadow: 
+    0 0 15px rgba(40, 167, 69, 0.6),
+    inset 0 2px 4px rgba(255, 255, 255, 0.3);
 }
 
 .braille-input-dot.active .braille-input-dot-inner {
   background: white;
   transform: scale(0.8);
+}
+
+/* 음성 입력 패턴 스타일 (입력과 다른 색으로 통일) - 주황색 계열 (BrailleCell과 동일) */
+.braille-input-dot.voice-active {
+  background: linear-gradient(135deg, #ff9800, #ff6f00) !important; /* 주황색 - 입력(파란색)과 구분 */
+  border-color: #ff9800 !important; /* BrailleCell과 동일한 테두리 색상 */
+  color: white;
+  box-shadow: 
+    0 0 15px rgba(255, 152, 0, 0.6),
+    inset 0 2px 4px rgba(255, 255, 255, 0.3) !important; /* BrailleCell과 동일한 그림자 */
+  z-index: 1;
+}
+
+.braille-input-dot.voice-active .braille-input-dot-inner {
+  background: white;
+  transform: scale(0.8);
+}
+
+/* 음성 입력 점자가 활성화되고 입력이 비활성화된 경우 */
+.braille-input-dot.inactive.voice-active {
+  background: linear-gradient(135deg, #ff9800, #ff6f00) !important;
+  border-color: #ff9800 !important; /* BrailleCell과 동일한 테두리 색상 */
+  box-shadow: 
+    0 0 15px rgba(255, 152, 0, 0.6),
+    inset 0 2px 4px rgba(255, 255, 255, 0.3) !important;
+}
+
+/* 입력과 음성이 모두 있을 때는 입력 우선 (초록색 - 웹 입력) */
+.braille-input-dot.active.voice-active {
+  background: linear-gradient(45deg, #28a745, #20c997) !important; /* 초록색 - 웹 입력 우선 */
+  border-color: #28a745 !important;
+  box-shadow: 
+    0 0 15px rgba(40, 167, 69, 0.6),
+    inset 0 2px 4px rgba(255, 255, 255, 0.3) !important;
 }
 
 .braille-input-dot-inner {
