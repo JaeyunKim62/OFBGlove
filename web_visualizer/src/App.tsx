@@ -57,7 +57,7 @@ function App() {
   const [webInputBuffer, setWebInputBuffer] = useState<BraillePattern[]>([]); // 웹 입력 버퍼(전송 전까지 대기)
   const [glovePosX, setGlovePosX] = useState(50); // % (좌측 기준)
   const [glovePosY, setGlovePosY] = useState(50); // % (상단 기준)
-  const [gloveScale, setGloveScale] = useState(150); // % (더 크게 표시)
+  const [gloveScale, setGloveScale] = useState(90); // % (더 크게 표시)
   const [gloveOpacity, setGloveOpacity] = useState(1); // 0~1
   
   const wsServiceRef = useRef<WebSocketService | null>(null);
@@ -1038,12 +1038,12 @@ function App() {
             </div>
             {webInputBuffer.length > 0 && (
               <div className="text-row">
-                <span className="text-label">웹 버퍼:</span>
+                <span className="text-label">입력 단어:</span>
                 <span className="text-value">{webBufferPreview}</span>
               </div>
             )}
             <div className="text-row">
-              <span className="text-label">입력 문장:</span>
+              <h4>입력 문장</h4>
               <span className="text-value sentence">{sentenceTextAll || '—'}</span>
             </div>
           </div>
@@ -1112,7 +1112,7 @@ function App() {
             </div>
             
             {currentSentenceSequence.length === 0 ? (
-              <div className="no-sentence">입력된 문장이 없습니다.</div>
+              <div className="no-sentence"></div>
             ) : (
               <div className="sentence-sequence-display">
                 {/* 문자 라인 */}

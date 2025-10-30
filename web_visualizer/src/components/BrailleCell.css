@@ -221,12 +221,13 @@
 
 .braille-cell-large {
   min-width: 250px;
-  padding: 25px;
+  padding: 12px; /* 패딩 축소로 실 점자 영역 확보 */
 }
 
 .braille-cell-large .braille-cell-dot {
-  width: 50px;
-  height: 50px;
+  /* 화면 너비와 높이에 모두 반응 */
+  width: clamp(52px, min(5vw, 9vh), 100px);
+  height: clamp(52px, min(5vw, 9vh), 100px);
 }
 
 .braille-cell-large .braille-cell-dot-label {
@@ -239,5 +240,17 @@
 
 .braille-cell-large .braille-cell-character {
   font-size: 2.5rem;
-  padding: 12px 18px;
+  padding: 8px 12px; /* 캐릭터 영역 패딩 축소 */
+}
+
+/* large 사이즈에서 내부 그리드 여백 축소 */
+.braille-cell-large .braille-cell-grid {
+  padding: clamp(6px, 0.8vw, 14px);
+  margin-bottom: clamp(6px, 0.8vw, 14px);
+  gap: clamp(6px, min(1vw, 1.2vh), 16px);
+}
+
+/* 가운데 문자 표시도 반응형으로 확대 */
+.braille-cell-large .braille-cell-character {
+  font-size: clamp(1.8rem, 2.5vw, 3.2rem);
 }
