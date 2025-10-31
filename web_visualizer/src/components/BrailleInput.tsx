@@ -7,9 +7,12 @@ interface BrailleInputProps {
   onPatternChange: (pattern: BrailleDot[]) => void;
   onSend?: () => void; // 전체 문장 전송 트리거
   onCommitWord?: () => void; // 현재 단어를 문장에 커밋 (더블클릭)
+  onNextWord?: () => void; // 다음 단어로 이동 (단어 재생 중일 때)
   isEnabled?: boolean;
   gloveBg?: { posX: number; posY: number; scale: number; opacity: number };
   voicePattern?: BraillePattern | null; // 음성 입력 패턴 (esp32/demo 소스)
+  isWordPlaying?: boolean; // 단어 재생 중인지 여부
+  hasWebInputBuffer?: boolean; // 웹 입력 버퍼에 내용이 있는지 여부 (웹 입력 우선)
 }
 
 export const BrailleInput: React.FC<BrailleInputProps> = ({
@@ -17,9 +20,12 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
   onPatternChange,
   onSend,
   onCommitWord,
+  onNextWord,
   isEnabled = true,
   gloveBg,
-  voicePattern
+  voicePattern,
+  isWordPlaying = false,
+  hasWebInputBuffer = false
 }) => {
   const [currentPattern, setCurrentPattern] = useState<BrailleDot[]>([]);
   const [isInputMode, setIsInputMode] = useState(true);
@@ -77,11 +83,19 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
     initializePattern();
   };
 
-  // 다음 버튼: 단일 클릭은 confirm, 더블클릭은 단어 커밋 (리렌더에도 유지)
+  // 다음 버튼: 단어 재생 중이고 웹 입력 버퍼가 비어있을 때는 다음 단어로, 아니면 기존 동작 (confirm/커밋)
   const nextClickTimerRef = React.useRef<number | null>(null);
   const nextDelayMs = 450;
   const handleNextClick = () => {
     if (!isEnabled) return;
+    
+    // 웹 입력 버퍼가 비어있고 단어 재생 중일 때만 다음 단어로 이동 (웹 입력 우선)
+    if (isWordPlaying && !hasWebInputBuffer && onNextWord) {
+      onNextWord();
+      return;
+    }
+    
+    // 기존 동작: 단일 클릭은 confirm, 더블클릭은 단어 커밋
     if (nextClickTimerRef.current) {
       window.clearTimeout(nextClickTimerRef.current);
       nextClickTimerRef.current = null;

@@ -1507,6 +1507,7 @@ function App() {
               onPatternChange={handleBraillePatternChange}
               onSend={handleSendBufferedWebInput}
               onCommitWord={handleCommitCurrentWebWord}
+              onNextWord={navigateToNextWord}
               isEnabled={isInputMode}
               gloveBg={{ posX: glovePosX, posY: glovePosY, scale: gloveScale, opacity: gloveOpacity }}
               voicePattern={(() => {
@@ -1516,6 +1517,8 @@ function App() {
                 }
                 return isVoiceSource ? braillePattern : null;
               })()}
+              isWordPlaying={isPlayingWord}
+              hasWebInputBuffer={webInputBuffer.length > 0}
             />
             {/* 배경 조정 컨트롤은 데모에서 숨김 */}
           </div>
