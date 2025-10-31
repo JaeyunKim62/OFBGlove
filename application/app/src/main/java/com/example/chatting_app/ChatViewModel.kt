@@ -2,6 +2,7 @@ package com.example.chatting_app
 
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.speech.RecognitionListener
@@ -95,6 +96,49 @@ class ChatViewModel : ViewModel() {
     
     private val _localIpAddress = MutableStateFlow<String?>(null)
     val localIpAddress: StateFlow<String?> = _localIpAddress.asStateFlow()
+    
+    // Saved IP address
+    private val _savedIpAddress = MutableStateFlow<String>(DEFAULT_IP)
+    val savedIpAddress: StateFlow<String> = _savedIpAddress.asStateFlow()
+    
+    // Application context for SharedPreferences
+    private var appContext: Context? = null
+    
+    // SharedPreferences key for saved IP address
+    companion object {
+        private const val PREF_NAME = "wifi_prefs"
+        private const val KEY_SAVED_IP = "saved_ip_address"
+        private const val DEFAULT_IP = "172.20.100.65"
+    }
+    
+    /**
+     * Initialize application context for SharedPreferences
+     */
+    fun initializeContext(context: Context) {
+        appContext = context.applicationContext
+        // Load saved IP address on initialization
+        _savedIpAddress.value = getSavedIpAddress()
+    }
+    
+    /**
+     * Get saved IP address, or default if not saved
+     */
+    fun getSavedIpAddress(): String {
+        val context = appContext ?: return DEFAULT_IP
+        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_SAVED_IP, DEFAULT_IP) ?: DEFAULT_IP
+    }
+    
+    /**
+     * Save IP address
+     */
+    fun saveIpAddress(ipAddress: String) {
+        val context = appContext ?: return
+        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putString(KEY_SAVED_IP, ipAddress).apply()
+        _savedIpAddress.value = ipAddress
+        Log.d("ChatViewModel", "IP 주소 저장됨: $ipAddress")
+    }
     
     /**
      * Check if RECORD_AUDIO permission is granted
@@ -811,10 +855,10 @@ class ChatViewModel : ViewModel() {
                 messageManager?.connectionState?.collect { state ->
                     _isWifiConnected.value = (state == com.example.chatting_app.network.ConnectionState.CONNECTED)
                     _wifiConnectionStatus.value = when (state) {
-                        com.example.chatting_app.network.ConnectionState.CONNECTED -> "WiFi 연결됨"
-                        com.example.chatting_app.network.ConnectionState.CONNECTING -> "WiFi 연결 중..."
+                        com.example.chatting_app.network.ConnectionState.CONNECTED -> "연결됨"
+                        com.example.chatting_app.network.ConnectionState.CONNECTING -> "연결 중..."
                         com.example.chatting_app.network.ConnectionState.DISCONNECTED -> "연결 안됨"
-                        com.example.chatting_app.network.ConnectionState.ERROR -> "WiFi 연결 오류"
+                        com.example.chatting_app.network.ConnectionState.ERROR -> "연결 오류"
                     }
                 }
             }

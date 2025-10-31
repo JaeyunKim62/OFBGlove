@@ -83,10 +83,14 @@ fun ChatApp(
     val localIpAddress by viewModel.localIpAddress.collectAsStateWithLifecycle()
     val transmissionMode by viewModel.transmissionMode.collectAsStateWithLifecycle()
     
+    // 저장된 IP 주소
+    val savedIpAddress by viewModel.savedIpAddress.collectAsStateWithLifecycle()
+    
     // 점자 입력 상태는 ChatScreen에서만 구독
     
     // Initialize speech engines when the app starts
     LaunchedEffect(Unit) {
+        viewModel.initializeContext(context)
         viewModel.initializeSpeechEngines(context)
         
         // Test braille conversion functionality
@@ -111,6 +115,7 @@ fun ChatApp(
                 isConnected = isWifiConnected,
                 connectionStatus = wifiConnectionStatus,
                 localIpAddress = localIpAddress,
+                savedIpAddress = savedIpAddress,
                 onStartServer = {
                     // 서버 모드는 현재 지원하지 않음 (UnifiedMessageManager는 클라이언트만 지원)
                     Toast.makeText(context, "서버 모드는 현재 지원하지 않습니다", Toast.LENGTH_SHORT).show()
@@ -120,6 +125,9 @@ fun ChatApp(
                 },
                 onDisconnect = {
                     viewModel.disconnectWifi()
+                },
+                onSaveIpAddress = { ipAddress ->
+                    viewModel.saveIpAddress(ipAddress)
                 },
                 modifier = Modifier.padding(16.dp)
             )
