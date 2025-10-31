@@ -232,7 +232,8 @@ class TCPBrailleServer extends EventEmitter {
       pattern: this.brailleDots,
       binary: braillePattern,
       character: character,
-      timestamp: pattern.timestamp
+      timestamp: pattern.timestamp,
+      source: pattern.source // source 필드 추가
     });
     
     // 로그 브로드캐스트 (요청된 경우에만)

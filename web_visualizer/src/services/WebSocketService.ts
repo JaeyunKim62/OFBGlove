@@ -142,7 +142,7 @@ export class WebSocketService {
         isActive
       })),
       timestamp: data.timestamp || Date.now(),
-      source: data.source as 'esp32' | 'web' | 'demo',
+      source: (data.source || 'esp32') as 'esp32' | 'web' | 'demo', // source가 없으면 기본값 'esp32' 사용
       character: data.character,
       binary: data.binary
     };
