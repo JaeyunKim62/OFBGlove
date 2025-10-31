@@ -47,7 +47,7 @@ class BrailleInputManager(private val context: Context) {
     private fun initializeTts() {
         textToSpeech = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                val result = textToSpeech?.setLanguage(Locale.getDefault())
+                val result = textToSpeech?.setLanguage(Locale.US)
                 if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                     Log.w("BrailleInputManager", "TTS 언어가 지원되지 않습니다")
                 } else {

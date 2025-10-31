@@ -386,7 +386,7 @@ class ChatViewModel : ViewModel() {
     private fun initializeTextToSpeech(context: Context) {
         textToSpeech = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                val result = textToSpeech?.setLanguage(Locale.getDefault())
+                val result = textToSpeech?.setLanguage(Locale.US)
                 if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                     // TODO: Handle language not supported case
                 } else {
