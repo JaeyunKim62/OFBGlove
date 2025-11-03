@@ -99,46 +99,72 @@ cd application
 
 #### 주요 특징
 - **교육/시연 목적**: 물리적 장갑 없이도 완전한 데모 가능
-- **실시간 점자, 장갑 시각화**: 장갑 이미지 위에 6개 점 표시
-- **양방향 통신**: 입력과 출력 인터페이스
-- **WebSocket, BLE 통신**: 실시간 점자 패턴 송수신
-- **레이아웃 제어**: 사용자 정의 가능한 인터페이스
-- **반응형 디자인**: 모바일/태블릿/데스크톱 최적화
+- **실시간 점자 시각화**: 2×3 점자 셀 실시간 표시 (소스별 색상 구분)
+- **양방향 통신**: 음성 입력(수신)과 웹 점자 입력(송신) 동시 지원
+- **통합 서버**: TCP 서버(8888) + WebSocket 서버(8889) 동시 실행
+- **문장 시퀀스 관리**: 입력 문장과 수신 문장 분리 표시
+- **재생 제어**: 다양한 재생 모드(고정/원본/적응형) 및 속도 조절
+- **TTS 통합**: 영어/한국어 자동 감지 및 음성 출력
+- **데이터 수집**: 점자 패턴 통계 및 내보내기 기능
+- **장갑 배경**: 점자 입력 영역에 장갑 이미지 배경 표시
 
 #### 기술 스택
 ```yaml
 프레임워크: React 18 + TypeScript
-통신: WebSocket (ws://localhost:8000)
+통신: WebSocket (ws://localhost:8889), TCP (localhost:8888)
+서버: Node.js (TCP + WebSocket 통합 서버)
 스타일링: CSS3 + Responsive Design
 빌드 도구: Create React App
+TTS: Web Speech API
 ```
 
 #### 개발 서버 실행
 ```bash
-# 웹 비주얼라이저 실행
+# 웹 비주얼라이저 실행 (웹 서버 + TCP/WebSocket 서버 동시 실행)
 cd web_visualizer
 npm install
-npm start
+npm run dev
 ```
+
+서버가 시작되면:
+- **웹 인터페이스**: http://localhost:3000
+- **TCP 서버**: localhost:8888 (ESP32/Android 앱용)
+- **WebSocket 서버**: ws://localhost:8889 (웹 클라이언트용)
+
+#### 주요 기능
+- **실시간 점자 시각화**: 중앙 점자 셀에 현재 패턴 표시 (소스별 색상 구분)
+- **문장 시퀀스**: 입력 문장(web)과 수신 문장(esp32/demo) 분리 표시
+- **점자 입력**: 6점 점자 그리드로 직접 입력 (버퍼 관리, 자동 커밋)
+- **재생 제어**: 문장 재생, 다시듣기, 재생 모드 및 속도 조절
+- **단어 반복**: 문장 완성 시 첫 단어 자동 반복 재생
+- **TTS 통합**: 단어 커밋 시 자동 음성 출력 (영어/한국어 자동 감지)
+- **구분자 최적화**: 단어/문장/점자 구분자별 지연 시간 설정
+- **데이터 수집**: 실시간 통계, 소스별 분류, 데이터 내보내기
+- **연결 모니터링**: WebSocket 연결 상태, TCP 클라이언트 목록, 서버 로그
 
 #### 프로젝트 구조
 ```
 web_visualizer/
 ├── src/
+│   ├── App.tsx                    # 메인 애플리케이션
 │   ├── components/
-│   │   ├── BrailleDot.tsx          # 개별 점자 점
-│   │   ├── BrailleGrid.tsx         # 6-dot 그리드
-│   │   ├── BrailleCell.tsx         # 점자 셀 (2×3)
-│   │   ├── ConnectionStatus.tsx    # 연결 상태
-│   │   └── OFBGloveVisualizer.tsx  # 메인 컴포넌트
+│   │   ├── BrailleCell.tsx        # 점자 셀 컴포넌트 (2×3)
+│   │   ├── BrailleInput.tsx       # 점자 입력 컴포넌트
+│   │   ├── ConnectionInfo.tsx     # 연결 정보 컴포넌트
+│   │   └── ServerLog.tsx          # 서버 로그 컴포넌트
 │   ├── services/
-│   │   ├── WebSocketService.ts     # WebSocket 관리
-│   │   └── BrailleProtocol.ts      # 프로토콜 처리
-│   └── types/
-│       ├── braille.ts              # 점자 타입
-│       └── layout.ts               # 레이아웃 타입
+│   │   └── WebSocketService.ts     # WebSocket 통신 서비스
+│   ├── server/
+│   │   ├── brailleServer.js        # 통합 서버 (TCP + WebSocket)
+│   │   └── tcpServer.js            # TCP 서버 구현
+│   ├── types/
+│   │   ├── braille.ts             # 점자 타입 정의
+│   │   └── websocket.ts           # WebSocket 타입 정의
+│   └── utils/
+│       ├── dataCollector.ts       # 데이터 수집 유틸리티
+│       └── networkUtils.ts        # 네트워크 유틸리티
 └── public/
-    └── OFBGlove_image.png          # 장갑 이미지
+    └── glove.png                  # 장갑 이미지 (배경용)
 ```
 
 ---
@@ -203,34 +229,44 @@ cd application
 
 # 4단계 (선택): 웹 비주얼라이저 병행 실행
 cd web_visualizer
-npm start
+npm run dev
 ```
 
 ### Option 2: 장갑 없이 시연 (웹 전용)
 
 ```bash
-# 1단계: WebSocket 서버 실행
-cd wearable
-python websocket_server.py
-
-# 2단계: 웹 비주얼라이저 실행
+# 1단계: 웹 비주얼라이저 실행 (통합 서버 포함)
 cd web_visualizer
-npm start
+npm install
+npm run dev
+# 이 명령은 웹 서버(3000)와 TCP/WebSocket 서버(8888/8889)를 동시에 실행합니다
 
-# 3단계: Android 앱을 WiFi 모드로 실행
+# 2단계: Android 앱을 WiFi 모드로 실행
 # - 앱에서 WiFi 프로토타입 테스트 모드 선택
-# - 서버 IP 입력 (예: 192.168.0.10:8000)
+# - 서버 IP 입력 (예: 192.168.0.10:8888)
 # - 음성 입력 시 웹에서 실시간 점자 시각화 확인
+
+# 3단계: 웹에서 직접 점자 입력하기
+# - 브라우저에서 http://localhost:3000 접속
+# - 하단 점자 입력 영역에서 6개 점 클릭
+# - 패턴 완성 후 "다음" 또는 "단어 커밋" 버튼 클릭
 ```
 
 ### Option 3: 개발/테스트 모드
 
 ```bash
-# 시뮬레이션 데이터로 웹 비주얼라이저 테스트
+# 웹 비주얼라이저 개발 모드
 cd web_visualizer
-npm start
-# 브라우저 개발자 도구에서:
-wsService.simulateBraillePattern("100110"); // 'D' 점자
+npm run dev
+# 웹 서버와 통합 서버가 동시에 실행됩니다
+
+# 브라우저에서 접속
+# http://localhost:3000
+
+# 개발자 도구 콘솔에서 직접 테스트 가능
+# - WebSocket 연결 상태 확인
+# - 점자 패턴 수신 테스트
+# - 데이터 수집 확인
 ```
 
 ---
@@ -265,18 +301,42 @@ Byte 1: 데이터 (점자 점 비트마스크 또는 기타 데이터)
       0b00011001 = 1,4,5점 활성 = "100110"
 ```
 
-### WiFi Socket 프로토콜 (App ↔ WebSocket Server)
+### WiFi Socket 프로토콜 (App ↔ TCP Server ↔ WebSocket Server)
 
+#### TCP 프로토콜 (Android 앱 → TCP 서버, 포트 8888)
+```
+3바이트 바이너리 프로토콜:
+[메시지 타입(1바이트)][점자 점(1바이트)][체크섬(1바이트)]
+
+메시지 타입:
+- 0x01: 점 상태 업데이트 (DOT_UPDATE)
+- 0x02: 점 상태 초기화 (CLEAR)
+- 0x03: 점자 입력 완료 (COMPLETE)
+
+점자 점: 6비트 비트마스크 (비트 0-5 = 점 1-6)
+```
+
+#### WebSocket 프로토콜 (웹 클라이언트 ↔ WebSocket 서버, 포트 8889)
 ```json
+// 점자 패턴 수신
 {
   "type": "braille_pattern",
   "pattern": [true, false, false, true, true, false],
   "binary": "100110",
   "character": "D",
-  "visual": "⠙",
+  "source": "esp32",
   "timestamp": 1234567890
 }
+
+// 구분자 메시지
+{
+  "type": "word_separator" | "sentence_separator" | "braille_separator"
+}
 ```
+
+자세한 프로토콜 문서:
+- [간단한 점자 점 통신 프로토콜](application/SIMPLE_BRAILLE_DOT_PROTOCOL.md)
+- [WiFi 프로토타입 프로토콜](application/WIFI_PROTOTYPE_PROTOCOL.md)
 
 ---
 
@@ -331,9 +391,11 @@ Byte 1: 데이터 (점자 점 비트마스크 또는 기타 데이터)
 - **저장공간**: 100MB 이상
 
 #### 웹 비주얼라이저
-- **브라우저**: Chrome 90+, Firefox 88+, Safari 14+
-- **네트워크**: WebSocket 지원
+- **브라우저**: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
+- **네트워크**: WebSocket 지원, TCP 소켓 접근 (Node.js 서버)
 - **해상도**: 1280×720 이상 권장
+- **TTS**: Web Speech API 지원 (Chrome/Edge 권장)
+- **Node.js**: 16+ (서버 실행용)
 
 #### ESP32 장갑
 - **MCU**: ESP32 (4MB Flash, 520KB RAM)
@@ -400,6 +462,7 @@ application/
 └── README_KO.md                         # 한글 README
 
 web_visualizer/
+├── README.md                             # 웹 비주얼라이저 가이드
 └── WEB_VISUALIZER_DEVELOPMENT_GUIDE.md  # 웹 개발 가이드
 
 wearable/
