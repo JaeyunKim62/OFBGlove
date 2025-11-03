@@ -857,11 +857,16 @@ function App() {
       const isVoiceInput = pattern.source === 'esp32' || pattern.source === 'demo';
       
       if (isVoiceInput) {
-        // 음성 입력 패턴을 즉시 화면에 표시
-        console.log(`🎤 음성 입력 패턴 수신 및 화면 표시: ${pattern.character} (${pattern.binary})`);
-        displayRealTimeBraillePattern(pattern);
+        // 단어 재생 중일 때는 실시간 패턴 표시하지 않음 (단어 반복 재생만 표시)
+        if (!isPlayingWord) {
+          // 음성 입력 패턴을 즉시 화면에 표시 (단어 재생 중이 아닐 때만)
+          console.log(`🎤 음성 입력 패턴 수신 및 화면 표시: ${pattern.character} (${pattern.binary})`);
+          displayRealTimeBraillePattern(pattern);
+        } else {
+          console.log(`🎤 음성 입력 패턴 수신 (단어 재생 중이라 표시 안 함): ${pattern.character} (${pattern.binary})`);
+        }
         
-        // 실시간 입력이 들어오면 기존 재생 중지
+        // 실시간 입력이 들어오면 기존 재생 중지 (단어 재생은 제외)
         if (isPlayingSequence) {
           console.log('🛑 실시간 입력으로 인한 전체 시퀀스 재생 중지');
           stopBrailleSequence();
@@ -870,10 +875,7 @@ function App() {
           console.log('🛑 실시간 입력으로 인한 문장 시퀀스 재생 중지');
           stopCurrentSentenceSequence();
         }
-        if (isPlayingWord) {
-          console.log('🛑 실시간 입력으로 인한 단어 재생 중지');
-          stopWordPlayback();
-        }
+        // 단어 재생은 계속 진행 (실시간 입력으로 중지하지 않음)
       }
       
       // 상태 업데이트 (전체 시퀀스)
@@ -1005,16 +1007,12 @@ function App() {
           console.log(`📝 분할된 단어 수: ${words.length}`, words.map(w => w.map(p => p.character).join('')));
           
           if (words.length > 0 && words[0].length > 0) {
-            // 즉시 화면에 첫 번째 단어의 첫 번째 점자 표시
-            const firstPattern = words[0][0];
-            console.log(`🎬 문장 완성 - 첫 번째 점자 즉시 표시: ${firstPattern.character} (${firstPattern.binary})`);
-            displayRealTimeBraillePattern(firstPattern);
-            
-            // 상태 업데이트 후 단어 반복 재생 시작
+            // 단어 시퀀스 설정
             setWordSequence(words);
             setCurrentWordIndex(0);
+            console.log(`📝 단어 시퀀스 설정 완료: ${words.length}개 단어`);
             
-            // 바로 단어 반복 재생 시작 (타이머 없이 즉시)
+            // 첫 번째 단어 반복 재생 시작 (단어별 반복만, 전체 문장 빠른 재생은 안 함)
             setTimeout(() => {
               console.log(`🎵 첫 번째 단어 반복 재생 시작: "${words[0].map(p => p.character).join('')}" (${words[0].length}개 점자)`);
               playWordRepeatWithWords(0, words);

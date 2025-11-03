@@ -61,14 +61,14 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr 1fr;
-  gap: 20px;
-  width: 170px;
-  height: 270px;
+  gap: 35px;
+  width: 270px;
+  height: 410px;
   margin: 0 auto 20px;
   background: transparent;
   border: 0px;
   padding: 0px;
-  padding-top: 320px;
+  padding-top: 470px;
   padding-right: 10px;
   border: 0px solid #e9ecef;
   background-position: 20px 30px;
@@ -141,8 +141,8 @@
 }
 
 .braille-input-dot-inner {
-  width: 35px;
-  height: 35px;
+  width: 45px;
+  height: 45px;
   background: #6c757d;
   border-radius: 50%;
   transition: all 0.2s ease;
