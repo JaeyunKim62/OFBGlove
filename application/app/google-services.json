@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "957944444713",
+    "project_id": "ofbglove",
+    "storage_bucket": "ofbglove.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:957944444713:android:dc68bb47cc0761e730e938",
+        "android_client_info": {
+          "package_name": "com.example.chatting_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB0MNXXWsPXa0ZiC5phCaxfAnP3Ela7_cc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

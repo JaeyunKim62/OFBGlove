@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.compose) apply false
     id("com.chaquo.python") version "15.0.1" apply false
+    id("com.google.gms.google-services") version "4.4.4" apply false
 }
 
 // Auto-cleanup task to prevent file lock issues
