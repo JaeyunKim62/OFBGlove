@@ -8,6 +8,7 @@ interface BrailleInputProps {
   onSend?: () => void; // 전체 문장 전송 트리거
   onCommitWord?: () => void; // 현재 단어를 문장에 커밋 (더블클릭)
   onNextWord?: () => void; // 다음 단어로 이동 (단어 재생 중일 때)
+  onSendDotPattern?: (pattern: BrailleDot[]) => void; // 점자 패턴을 TCP 서버로 전송
   isEnabled?: boolean;
   gloveBg?: { posX: number; posY: number; scale: number; opacity: number };
   voicePattern?: BraillePattern | null; // 음성 입력 패턴 (esp32/demo 소스)
@@ -21,6 +22,7 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
   onSend,
   onCommitWord,
   onNextWord,
+  onSendDotPattern,  // 추가
   isEnabled = true,
   gloveBg,
   voicePattern,
@@ -135,7 +137,32 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
     initializePattern();
   };
 
-  // 다음 버튼: 단어 재생 중이고 웹 입력 버퍼가 비어있을 때는 다음 단어로, 아니면 기존 동작 (confirm/커밋)
+  // 점자 패턴을 바이트로 변환 (6개 점 → 1바이트)
+  const patternToByte = (pattern: BrailleDot[]): number => {
+    let byte = 0;
+    for (let i = 0; i < 6; i++) {
+      if (pattern[i]?.isActive) {
+        byte |= (1 << i); // Bit 0: 점 1, Bit 1: 점 2, ..., Bit 5: 점 6
+      }
+    }
+    return byte;
+  };
+
+  // TCP 서버로 점자 패턴 전송 (DOT_PATTERN)
+  const sendDotPatternToTCP = (pattern: BrailleDot[]) => {
+    if (!onSendDotPattern) return; // onSendDotPattern prop가 없으면 종료
+    if (!isEnabled) return; // isEnabled가 false면 종료
+
+    const dotsByte = patternToByte(pattern);
+    
+    // 호출자에게 패턴을 전달 (예: App.tsx에서 사용)
+    onSendDotPattern(pattern);
+    
+    const binary = pattern.map(d => d.isActive ? '1' : '0').join('');
+    console.log(`📤 DOT_PATTERN 전송: 0x${dotsByte.toString(16).padStart(2, '0')} (${binary})`);
+  };
+
+  // 다음 버튼: 단일 클릭 시 TCP 서버로 전송, 더블클릭은 단어 커밋
   const nextClickTimerRef = React.useRef<number | null>(null);
   const nextDelayMs = 450;
   const handleNextClick = () => {
@@ -147,7 +174,7 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
       return;
     }
     
-    // 기존 동작: 단일 클릭은 confirm, 더블클릭은 단어 커밋
+    // 기존 동작: 단일 클릭은 TCP 서버로 전송, 더블클릭은 단어 커밋
     if (nextClickTimerRef.current) {
       window.clearTimeout(nextClickTimerRef.current);
       nextClickTimerRef.current = null;
@@ -155,6 +182,10 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
       initializePattern();
     } else {
       nextClickTimerRef.current = window.setTimeout(() => {
+        // 단일 클릭: 현재 패턴을 TCP 서버로 전송
+        if (onSendDotPattern) {
+          onSendDotPattern(currentPattern);
+        }
         confirmAndNext();
         nextClickTimerRef.current = null;
       }, nextDelayMs);

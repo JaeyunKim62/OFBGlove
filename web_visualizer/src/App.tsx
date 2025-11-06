@@ -1390,6 +1390,38 @@ function App() {
     }
   }, [webInputBuffer]); // webInputBuffer가 변경될 때만 실행
 
+  // 점자 패턴을 바이트로 변환 (6개 점 → 1바이트)
+  const patternToByte = (pattern: BrailleDot[]): number => {
+    let byte = 0;
+    for (let i = 0; i < 6; i++) {
+      if (pattern[i]?.isActive) {
+        byte |= (1 << i); // Bit 0: 점 1, Bit 1: 점 2, ..., Bit 5: 점 6
+      }
+    }
+    return byte;
+  };
+
+  // TCP 서버로 점자 패턴 전송 (DOT_PATTERN)
+  const sendDotPatternToTCP = (pattern: BrailleDot[]) => {
+    if (!wsServiceRef.current || !wsServiceRef.current.isConnected()) {
+      console.warn('WebSocket이 연결되지 않음');
+      addLog('warning', 'WebSocket 연결이 없어 점자 패턴을 전송할 수 없습니다');
+      return;
+    }
+
+    const dotsByte = patternToByte(pattern);
+    
+    // WebSocket을 통해 서버로 전송
+    wsServiceRef.current.send({
+      type: 'dot_pattern',
+      dotsByte: dotsByte
+    });
+    
+    const binary = pattern.map(d => d.isActive ? '1' : '0').join('');
+    console.log(`📤 DOT_PATTERN 전송: 0x${dotsByte.toString(16).padStart(2, '0')} (${binary})`);
+    addLog('success', `DOT_PATTERN 전송: 0x${dotsByte.toString(16).padStart(2, '0')} (${binary})`);
+  };
+
   return (
     <div className="App">
       <header className="App-header">
@@ -1592,6 +1624,7 @@ function App() {
               onPatternChange={handleBraillePatternChange}
               onCommitWord={handleCommitCurrentWebWord}
               onNextWord={navigateToNextWord}
+              onSendDotPattern={sendDotPatternToTCP}  // 추가
               isEnabled={isInputMode}
               gloveBg={{ posX: glovePosX, posY: glovePosY, scale: gloveScale, opacity: gloveOpacity }}
               voicePattern={(() => {

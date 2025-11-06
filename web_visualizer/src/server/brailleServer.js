@@ -186,6 +186,20 @@ class BrailleServer {
         }
         break;
 
+      case 'dot_pattern':
+        // WebSocket에서 받은 점자 패턴을 TCP 클라이언트로 전달
+        if (data.dotsByte !== undefined) {
+          const dotsByte = data.dotsByte;
+          const message = this.tcpServer.createDotPatternMessage(dotsByte);
+          
+          // TCP 서버의 모든 클라이언트에게 전송
+          this.tcpServer.broadcastToTCPClients(message);
+          console.log(`📤 DOT_PATTERN 전송: 0x${dotsByte.toString(16).padStart(2, '0')}`);
+        } else {
+          console.error('점자 패턴 데이터 형식 오류:', data);
+        }
+        break;
+
       default:
         console.log('알 수 없는 WebSocket 메시지 타입:', data.type);
     }

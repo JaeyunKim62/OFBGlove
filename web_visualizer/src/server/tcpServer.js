@@ -480,6 +480,31 @@ class TCPBrailleServer extends EventEmitter {
     return Buffer.concat([header, imageData]);
   }
 
+  // DOT_PATTERN 메시지 생성 (헤더 4바이트 + dotsByte 1바이트)
+  createDotPatternMessage(dotsByte) {
+    const messageType = 0x01; // DOT_PATTERN
+    const dataLength = 1; // dotsByte 1바이트
+    const data = Buffer.from([dotsByte]);
+    
+    // 체크섬 계산 (헤더 3바이트 + 데이터)
+    const checksumData = Buffer.alloc(4);
+    checksumData[0] = messageType;
+    checksumData[1] = dataLength & 0xFF; // LSB
+    checksumData[2] = (dataLength >> 8) & 0xFF; // MSB
+    checksumData[3] = dotsByte;
+    const checksum = this.calculateChecksum(checksumData);
+    
+    // 헤더 생성 (4바이트)
+    const header = Buffer.alloc(4);
+    header[0] = messageType;
+    header[1] = dataLength & 0xFF; // LSB
+    header[2] = (dataLength >> 8) & 0xFF; // MSB
+    header[3] = checksum;
+    
+    // 헤더 + 데이터 결합
+    return Buffer.concat([header, data]);
+  }
+
   // TCP 클라이언트에게 브로드캐스트 (이미지 메시지용)
   broadcastToTCPClients(message) {
     let successCount = 0;
