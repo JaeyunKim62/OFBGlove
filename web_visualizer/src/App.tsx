@@ -568,34 +568,27 @@ function App() {
 
     // 입력된 패턴을 상태에 추가
     setInputPatterns(prev => [...prev, newPattern]);
-    // 웹 입력은 전송 시점까지 버퍼에만 저장 + 공백 2회 연속 시 단어 커밋
+    // 웹 입력은 전송 시점까지 버퍼에만 저장 + 공백 2회 연속 시 전송
     setWebInputBuffer(prev => {
       const proposed = [...prev, newPattern];
       const len = proposed.length;
       const isSpace = (p: BraillePattern) => p.binary === '000000';
       if (len >= 2 && isSpace(proposed[len - 1]) && isSpace(proposed[len - 2])) {
-        // 현재 단어 범위 계산 (마지막 두 공백 이전의 연속 단어)
-        let start = len - 2; // 두 공백 앞부터
-        for (let i = len - 3; i >= 0; i--) {
-          if (isSpace(proposed[i])) { start = i + 1; break; }
-          if (i === 0) start = 0;
-        }
-        const wordPatterns = proposed.slice(start, len - 2).filter(p => !isSpace(p));
-        if (wordPatterns.length > 0) {
-          const spacePattern = createSpacePattern('web');
-          setCurrentSentenceSequence(seq => [...seq, ...wordPatterns, spacePattern]);
-          setBrailleSequence(seq => [...seq, ...wordPatterns, spacePattern]);
-          setSequenceWithSeparators(seq => [
-            ...seq,
-            ...wordPatterns.map(p => ({ type: 'braille', pattern: p })),
-            { type: 'braille', pattern: spacePattern }
-          ]);
-          wordPatterns.forEach(p => dataCollectorRef.current?.addPattern(p));
-          dataCollectorRef.current?.addPattern(spacePattern);
-          addLog('success', `공백×2 커밋: "${patternsToText(wordPatterns)}"`);
-          // 버퍼는 커밋된 단어 이전까지만 유지 (트리거 공백 2개는 소모)
-          return proposed.slice(0, start);
-        }
+        // 공백 2개가 쌓이면 전송
+        // 버퍼의 모든 내용을 전송하고 버퍼 초기화
+        const spacePattern = createSpacePattern('web');
+        setCurrentSentenceSequence(seq => [...seq, ...prev, spacePattern]);
+        setBrailleSequence(seq => [...seq, ...prev, spacePattern]);
+        setSequenceWithSeparators(seq => [
+          ...seq,
+          ...prev.map(p => ({ type: 'braille', pattern: p })),
+          { type: 'braille', pattern: spacePattern }
+        ]);
+        prev.forEach(p => dataCollectorRef.current?.addPattern(p));
+        dataCollectorRef.current?.addPattern(spacePattern);
+        addLog('success', `공백×2 전송: "${patternsToText(prev.filter(p => !isSpace(p)))}"`);
+        // 버퍼 초기화 (전송 완료)
+        return [];
       }
       return proposed;
     });
