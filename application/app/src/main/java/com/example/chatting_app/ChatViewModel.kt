@@ -880,6 +880,11 @@ class ChatViewModel : ViewModel() {
                 }
             }
             
+            // 이미지 수신 콜백 설정
+            messageManager?.setOnImageReceived { bitmap ->
+                handleReceivedImage(bitmap)
+            }
+            
             Log.d("ChatViewModel", "Unified Message Manager 초기화 완료")
         } catch (e: Exception) {
             Log.e("ChatViewModel", "Unified Message Manager 초기화 실패: ${e.message}", e)

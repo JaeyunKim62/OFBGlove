@@ -1,6 +1,10 @@
 package com.example.chatting_app.network
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +30,9 @@ class WifiClient(private val context: Context) {
     // 수신된 메시지
     private val _receivedMessage = MutableStateFlow<WifiMessage?>(null)
     val receivedMessage: StateFlow<WifiMessage?> = _receivedMessage.asStateFlow()
+    
+    // 이미지 수신 콜백 (메인 스레드에서 호출됨)
+    var onImageReceived: ((Bitmap) -> Unit)? = null
     
     companion object {
         private const val TAG = "WifiClient"
@@ -133,7 +140,26 @@ class WifiClient(private val context: Context) {
         val message = WifiMessageProtocol.deserializeMessage(packet)
         if (message != null) {
             Log.d(TAG, "Received message: ${message.messageType}")
-            _receivedMessage.value = message
+            
+            // IMAGE_DATA 메시지 처리
+            if (message.messageType == MessageType.IMAGE_DATA) {
+                // 이미지를 Bitmap으로 변환
+                val bitmap = BitmapFactory.decodeByteArray(
+                    message.data, 0, message.data.size
+                )
+                bitmap?.let {
+                    // 메인 스레드에서 콜백 호출 (UI 업데이트를 위해)
+                    Handler(Looper.getMainLooper()).post {
+                        onImageReceived?.invoke(it)
+                    }
+                    Log.d(TAG, "이미지 수신 및 Bitmap 변환 완료: ${it.width}x${it.height}")
+                } ?: run {
+                    Log.e(TAG, "Bitmap 변환 실패: 이미지 데이터가 유효하지 않음")
+                }
+            } else {
+                // 다른 메시지는 기존대로 처리
+                _receivedMessage.value = message
+            }
         } else {
             Log.w(TAG, "Failed to deserialize message")
         }

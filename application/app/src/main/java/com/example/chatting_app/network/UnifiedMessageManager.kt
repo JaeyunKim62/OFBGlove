@@ -1,6 +1,7 @@
 package com.example.chatting_app.network
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.util.Log
 import kotlinx.coroutines.flow.StateFlow
 
@@ -28,6 +29,13 @@ class UnifiedMessageManager(private val context: Context) {
     
     // 수신된 메시지
     val receivedMessage: StateFlow<WifiMessage?> = wifiClient.receivedMessage
+    
+    /**
+     * 이미지 수신 콜백 설정
+     */
+    fun setOnImageReceived(callback: (Bitmap) -> Unit) {
+        wifiClient.onImageReceived = callback
+    }
     
     /**
      * WiFi 서버에 연결

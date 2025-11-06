@@ -120,5 +120,8 @@ enum class MessageType(val value: Int) {
     // 수신 메시지 (ESP32 → 앱)
     STATUS_UPDATE(0x81),      // 상태 업데이트 (0x80 + 0x01)
     MESSAGE_RECEIVED(0x82),   // 메시지 수신 확인 (0x80 + 0x02)
-    SETTINGS_UPDATED(0x83)    // 설정 업데이트 확인 (0x80 + 0x03)
+    SETTINGS_UPDATED(0x83),   // 설정 업데이트 확인 (0x80 + 0x03)
+    
+    // 이미지 데이터 (웹 → 앱)
+    IMAGE_DATA(0x30)          // 이미지 데이터
 }
