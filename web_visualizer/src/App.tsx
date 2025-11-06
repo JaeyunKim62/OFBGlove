@@ -1590,7 +1590,6 @@ function App() {
             <BrailleInput
               onPatternComplete={handleBraillePatternComplete}
               onPatternChange={handleBraillePatternChange}
-              onSend={handleSendBufferedWebInput}
               onCommitWord={handleCommitCurrentWebWord}
               onNextWord={navigateToNextWord}
               isEnabled={isInputMode}
