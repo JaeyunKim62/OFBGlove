@@ -20,9 +20,9 @@ class TextRecognizerManager {
     companion object {
         private const val TAG = "TextRecognizerManager"
         // 문자 크기 범위 (여백 포함): 20-40 픽셀 (실제 문자는 16x16 ~ 24x24)
-        private const val MIN_CHAR_SIZE = 20 // 최소 문자 크기 (픽셀)
+        private const val MIN_CHAR_SIZE = 32 // 최소 문자 크기 (픽셀)
         private const val MAX_CHAR_SIZE = 40 // 최대 문자 크기 (픽셀)
-        private const val TARGET_CHAR_SIZE = 30 // 목표 문자 크기 (픽셀)
+        private const val TARGET_CHAR_SIZE = 35 // 목표 문자 크기 (픽셀)
     }
 
     // 기본 라틴 문자 인식 (숫자, 알파벳 지원)

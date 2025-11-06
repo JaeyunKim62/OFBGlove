@@ -1384,9 +1384,9 @@ function App() {
                 try {
                   console.log('필담 이미지 완성, 리사이즈 시작...');
                   
-                  // 1. 이미지 리사이즈 (30×30px)
-                  const resizedImage = await resizeImage(imageData, 30);
-                  console.log('이미지 리사이즈 완료: 30×30px');
+                  // 1. 이미지 리사이즈 (35×35px)
+                  const resizedImage = await resizeImage(imageData, 35);
+                  console.log('이미지 리사이즈 완료: 35×35px');
                   
                   // 2. base64 → ArrayBuffer 변환
                   const arrayBuffer = base64ToArrayBuffer(resizedImage);
