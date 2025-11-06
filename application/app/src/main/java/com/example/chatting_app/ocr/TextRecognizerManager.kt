@@ -19,8 +19,10 @@ class TextRecognizerManager {
 
     companion object {
         private const val TAG = "TextRecognizerManager"
-        private const val MIN_IMAGE_SIZE = 200 // 최소 이미지 크기
-        private const val TARGET_SIZE = 400 // 목표 이미지 크기
+        // 문자 크기 범위 (여백 포함): 20-40 픽셀 (실제 문자는 16x16 ~ 24x24)
+        private const val MIN_CHAR_SIZE = 20 // 최소 문자 크기 (픽셀)
+        private const val MAX_CHAR_SIZE = 40 // 최대 문자 크기 (픽셀)
+        private const val TARGET_CHAR_SIZE = 30 // 목표 문자 크기 (픽셀)
     }
 
     // 기본 라틴 문자 인식 (숫자, 알파벳 지원)
@@ -72,7 +74,7 @@ class TextRecognizerManager {
      * 이미지 전처리 (흑백 변환 + 최소 대비 향상 + 크기 조정)
      * @param skipPreprocessing true면 전처리 없이 원본 그대로 사용 (디버깅용)
      */
-    private fun preprocessImage(bitmap: Bitmap, skipPreprocessing: Boolean = true): Bitmap {
+    private fun preprocessImage(bitmap: Bitmap, skipPreprocessing: Boolean = false): Bitmap {
         // 디버깅: 전처리 없이 원본 그대로 테스트
         if (skipPreprocessing) {
             Log.d(TAG, "⚠️ 전처리 건너뛰기 - 원본 이미지 그대로 사용")
@@ -89,29 +91,34 @@ class TextRecognizerManager {
         processed = enhanceContrast(processed)
         Log.d(TAG, "대비 향상 완료")
         
-        // 3. 크기 확대 (작은 이미지인 경우)
+        // 3. 크기 조정 (큰 이미지인 경우 축소)
         val width = processed.width
         val height = processed.height
         
-        if (width < MIN_IMAGE_SIZE || height < MIN_IMAGE_SIZE) {
-            val scale = maxOf(
-                TARGET_SIZE.toFloat() / width,
-                TARGET_SIZE.toFloat() / height
-            )
+        // 이미지 크기로부터 추정 문자 크기 계산 (일반적으로 이미지 높이의 1/10 ~ 1/20 정도)
+        // 필담 이미지 특성상 텍스트가 중앙에 집중되어 있다고 가정
+        val estimatedCharHeight = minOf(width, height) / 10f // 보수적으로 추정
+        
+        // 추정된 문자 크기가 최대값을 초과하면 이미지 축소
+        if (estimatedCharHeight > MAX_CHAR_SIZE) {
+            // 목표 문자 크기에 맞추기 위한 스케일 계산
+            val scale = TARGET_CHAR_SIZE / estimatedCharHeight
             
-            val newWidth = (width * scale).toInt()
-            val newHeight = (height * scale).toInt()
+            val newWidth = (width * scale).toInt().coerceAtLeast(1)
+            val newHeight = (height * scale).toInt().coerceAtLeast(1)
             
-            Log.d(TAG, "이미지 확대: ${width}x${height} -> ${newWidth}x${newHeight} (scale: $scale)")
+            Log.d(TAG, "이미지 축소: ${width}x${height} -> ${newWidth}x${newHeight} (scale: $scale, 추정 문자 크기: ${estimatedCharHeight}px -> ${estimatedCharHeight * scale}px)")
             
             val scaledBitmap = Bitmap.createScaledBitmap(processed, newWidth, newHeight, true)
             
-            // 대비 향상된 이미지 메모리 해제
+            // 처리된 이미지 메모리 해제
             if (processed != bitmap && !processed.isRecycled) {
                 processed.recycle()
             }
             
             return scaledBitmap
+        } else {
+            Log.d(TAG, "크기 조정 불필요: 추정 문자 크기 ${estimatedCharHeight}px (범위: ${MIN_CHAR_SIZE}-${MAX_CHAR_SIZE}px)")
         }
         
         // 원본이 처리된 이미지면 메모리 해제

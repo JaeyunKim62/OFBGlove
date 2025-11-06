@@ -151,7 +151,7 @@ fun ChatApp(
                         viewModel.testOcrWithImage(context)
                     }
                 ) {
-                    Text("OCR 테스트 (test_8.png)")
+                    Text("OCR 테스트 (test_*.png)")
                 }
             }
             
