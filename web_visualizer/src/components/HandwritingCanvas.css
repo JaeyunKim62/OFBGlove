@@ -1,0 +1,92 @@
+/* 필담 Canvas 컴포넌트 스타일 */
+.handwriting-canvas-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.canvas-wrapper {
+  position: relative;
+  border: 2px solid #333;
+  border-radius: 4px;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  cursor: crosshair;
+}
+
+.handwriting-canvas {
+  display: block;
+  width: 300px;
+  height: 300px;
+  touch-action: none; /* 터치 스크롤 방지 */
+}
+
+.canvas-controls {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  justify-content: center;
+}
+
+.canvas-btn {
+  padding: 10px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 100px;
+}
+
+.canvas-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.canvas-btn:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.clear-btn {
+  background: #6c757d;
+  color: white;
+}
+
+.clear-btn:not(:disabled):hover {
+  background: #5a6268;
+}
+
+.send-btn {
+  background: #007bff;
+  color: white;
+}
+
+.send-btn:not(:disabled):hover {
+  background: #0056b3;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .handwriting-canvas-container {
+    padding: 16px;
+  }
+
+  .handwriting-canvas {
+    width: 250px;
+    height: 250px;
+  }
+
+  .canvas-btn {
+    padding: 8px 20px;
+    font-size: 14px;
+    min-width: 80px;
+  }
+}
+

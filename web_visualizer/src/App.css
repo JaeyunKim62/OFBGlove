@@ -124,18 +124,18 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   align-items: stretch; /* 가로로 꽉 채움 */
-  justify-content: stretch; /* 세로로 꽉 채움 */
+  justify-content: flex-start; /* 상단부터 배치 */
   background: transparent; /* 외곽 박스 제거 */
   border-radius: 0;
   padding: 0; /* 패딩 제거로 여백 축소 */
   box-shadow: none;
   border: none;
   height: 100%; /* 그리드 열 높이를 가득 채움 */
-  grid-column: 2; /* 첫 번째 열 */
+  grid-column: 2; /* 두 번째 열 */
   grid-row: 1; /* 첫 번째 행 */
   position: relative; /* 배경 레이어 배치를 위해 */
   overflow: hidden;
-  
+  gap: 20px; /* 요소 간 간격 */
 }
 
 /* 장갑 배경 레이어 */
@@ -261,9 +261,9 @@ html, body, #root {
 }
 
 .braille-container {
-  flex: 1;
+  flex: 0 0 auto; /* 고정 크기, 자동 축소/확대 안함 */
   margin-top: 0; /* 위쪽 마진 제거 */
-  height: 100%;
+  min-height: 0; /* 최소 높이 제한 해제 */
   justify-content: stretch;
   align-items: stretch;
 }
@@ -1371,4 +1371,11 @@ html, body, #root {
     min-width: 20px;
     padding: 2px 4px;
   }
+}
+
+/* 필담 Canvas 섹션 - 2열 하단에 배치 */
+.handwriting-section {
+  flex: 0 0 auto; /* 고정 크기 */
+  width: 100%;
+  margin-top: auto; /* 하단에 배치 */
 }

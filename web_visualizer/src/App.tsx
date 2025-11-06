@@ -3,6 +3,7 @@ import { BrailleCell } from './components/BrailleCell';
 import { BrailleInput } from './components/BrailleInput';
 import { ConnectionInfo } from './components/ConnectionInfo';
 import { ServerLog } from './components/ServerLog';
+import { HandwritingCanvas } from './components/HandwritingCanvas';
 import { WebSocketService } from './services/WebSocketService';
 import { DataCollector } from './utils/dataCollector';
 import { BraillePattern, BrailleData, BrailleDot } from './types/braille';
@@ -1374,6 +1375,16 @@ function App() {
           {/* 데모 간소화: 상단 이전/다음 대형 버튼 숨김 */}
           
           {/* 데모 간소화: 단어 네비게이션 컨트롤 숨김 */}
+          
+          {/* 필담 Canvas 섹션 - 2열 하단에 배치 */}
+          <div className="handwriting-section">
+            <HandwritingCanvas
+              onImageComplete={(imageData) => {
+                console.log('필담 이미지 완성:', imageData.substring(0, 50) + '...');
+                // TODO: 이미지 리사이즈 및 전송 로직 구현 예정
+              }}
+            />
+          </div>
         </div>
 
         <div className="sentence-panel">
