@@ -12,7 +12,8 @@ class TCPBrailleServer extends EventEmitter {
     super();
     this.port = port;
     this.server = null;
-    this.clients = new Set();
+    this.clients = new Set(); // WebSocket 클라이언트용
+    this.tcpClients = new Set(); // TCP 소켓용 (추가 필요)
     this.blockedClients = new Set(); // 차단된 클라이언트 주소 저장
     this.brailleDots = [false, false, false, false, false, false];
     this.currentSettings = {
@@ -298,7 +299,10 @@ class TCPBrailleServer extends EventEmitter {
   handleTCPClient(socket) {
     const clientAddress = `${socket.remoteAddress}:${socket.remotePort}`;
     console.log(`🔗 TCP 클라이언트 연결: ${clientAddress}`);
-    console.log(`📊 현재 TCP 클라이언트 수: ${this.server.listenerCount('connection')}`);
+    
+    // TCP 소켓을 별도 Set에 추가
+    this.tcpClients.add(socket);
+    console.log(`📊 현재 TCP 클라이언트 수: ${this.tcpClients.size}`);
 
     socket.on('data', (data) => {
       console.log(`📨 TCP 데이터 수신 (${clientAddress}): ${data.length}바이트`);
@@ -307,10 +311,12 @@ class TCPBrailleServer extends EventEmitter {
 
     socket.on('close', () => {
       console.log(`🔌 TCP 클라이언트 연결 해제: ${clientAddress}`);
+      this.tcpClients.delete(socket); // TCP 소켓 제거
     });
 
     socket.on('error', (error) => {
       console.error(`TCP 클라이언트 오류 (${clientAddress}):`, error);
+      this.tcpClients.delete(socket); // 에러 시에도 제거
     });
   }
 
@@ -479,17 +485,19 @@ class TCPBrailleServer extends EventEmitter {
     let successCount = 0;
     let errorCount = 0;
     
-    this.clients.forEach(socket => {
+    // TCP 소켓만 순회
+    this.tcpClients.forEach(socket => {
       if (socket && !socket.destroyed) {
         try {
           socket.write(message);
           successCount++;
         } catch (error) {
           console.error('TCP 클라이언트 전송 오류:', error);
-          this.clients.delete(socket);
+          this.tcpClients.delete(socket);
           errorCount++;
         }
       } else {
+        this.tcpClients.delete(socket);
         errorCount++;
       }
     });
