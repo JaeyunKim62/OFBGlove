@@ -456,6 +456,51 @@ class TCPBrailleServer extends EventEmitter {
   getBlockedClients() {
     return Array.from(this.blockedClients);
   }
+
+  // 이미지 메시지 생성 (헤더 4바이트 + 이미지 데이터)
+  createImageMessage(imageData) {
+    const messageType = 0x30; // IMAGE_DATA
+    const dataLength = imageData.length;
+    const checksum = this.calculateChecksum(imageData);
+    
+    // 헤더 생성 (4바이트)
+    const header = Buffer.alloc(4);
+    header[0] = messageType;
+    header[1] = dataLength & 0xFF; // LSB
+    header[2] = (dataLength >> 8) & 0xFF; // MSB
+    header[3] = checksum;
+    
+    // 헤더 + 데이터 결합
+    return Buffer.concat([header, imageData]);
+  }
+
+  // TCP 클라이언트에게 브로드캐스트 (이미지 메시지용)
+  broadcastToTCPClients(message) {
+    let successCount = 0;
+    let errorCount = 0;
+    
+    this.clients.forEach(socket => {
+      if (socket && !socket.destroyed) {
+        try {
+          socket.write(message);
+          successCount++;
+        } catch (error) {
+          console.error('TCP 클라이언트 전송 오류:', error);
+          this.clients.delete(socket);
+          errorCount++;
+        }
+      } else {
+        errorCount++;
+      }
+    });
+    
+    if (successCount > 0) {
+      console.log(`✅ TCP 클라이언트 전송 성공: ${successCount}개`);
+    }
+    if (errorCount > 0) {
+      console.log(`❌ TCP 클라이언트 전송 실패: ${errorCount}개`);
+    }
+  }
 }
 
 module.exports = TCPBrailleServer;

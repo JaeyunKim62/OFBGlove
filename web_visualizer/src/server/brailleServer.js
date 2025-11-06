@@ -172,6 +172,20 @@ class BrailleServer {
         }));
         break;
 
+      case 'image_data':
+        // WebSocket에서 받은 이미지를 TCP 클라이언트로 전달
+        if (data.image && Array.isArray(data.image)) {
+          const imageBytes = Buffer.from(data.image);
+          const imageMessage = this.tcpServer.createImageMessage(imageBytes);
+          
+          // TCP 서버의 모든 클라이언트에게 전송
+          this.tcpServer.broadcastToTCPClients(imageMessage);
+          console.log(`📷 이미지 데이터 전송: ${imageBytes.length} bytes`);
+        } else {
+          console.error('이미지 데이터 형식 오류:', data);
+        }
+        break;
+
       default:
         console.log('알 수 없는 WebSocket 메시지 타입:', data.type);
     }

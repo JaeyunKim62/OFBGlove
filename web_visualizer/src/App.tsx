@@ -7,6 +7,7 @@ import { HandwritingCanvas } from './components/HandwritingCanvas';
 import { WebSocketService } from './services/WebSocketService';
 import { DataCollector } from './utils/dataCollector';
 import { BraillePattern, BrailleData, BrailleDot } from './types/braille';
+import { resizeImage, base64ToArrayBuffer } from './utils/imageUtils';
 import './App.css';
 
 interface LogEntry {
@@ -1379,9 +1380,35 @@ function App() {
           {/* 필담 Canvas 섹션 - 2열 하단에 배치 */}
           <div className="handwriting-section">
             <HandwritingCanvas
-              onImageComplete={(imageData) => {
-                console.log('필담 이미지 완성:', imageData.substring(0, 50) + '...');
-                // TODO: 이미지 리사이즈 및 전송 로직 구현 예정
+              onImageComplete={async (imageData) => {
+                try {
+                  console.log('필담 이미지 완성, 리사이즈 시작...');
+                  
+                  // 1. 이미지 리사이즈 (30×30px)
+                  const resizedImage = await resizeImage(imageData, 30);
+                  console.log('이미지 리사이즈 완료: 30×30px');
+                  
+                  // 2. base64 → ArrayBuffer 변환
+                  const arrayBuffer = base64ToArrayBuffer(resizedImage);
+                  const uint8Array = new Uint8Array(arrayBuffer);
+                  console.log('ArrayBuffer 변환 완료:', uint8Array.length, 'bytes');
+                  
+                  // 3. WebSocket을 통해 서버로 전송
+                  if (wsServiceRef.current && wsServiceRef.current.isConnected()) {
+                    wsServiceRef.current.send({
+                      type: 'image_data',
+                      image: Array.from(uint8Array) // Uint8Array를 배열로 변환
+                    });
+                    console.log('이미지 전송 완료');
+                    addLog('success', `필담 이미지 전송 완료 (${uint8Array.length} bytes)`);
+                  } else {
+                    console.error('WebSocket이 연결되지 않음');
+                    addLog('error', 'WebSocket 연결이 없어 이미지를 전송할 수 없습니다');
+                  }
+                } catch (error) {
+                  console.error('이미지 처리 오류:', error);
+                  addLog('error', '이미지 처리 실패: ' + (error as Error).message);
+                }
               }}
             />
           </div>

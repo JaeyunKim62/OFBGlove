@@ -131,6 +131,8 @@ export const HandwritingCanvas: React.FC<HandwritingCanvasProps> = ({
     const imageData = getImageData();
     if (imageData && onImageComplete) {
       onImageComplete(imageData);
+      // 전송 후 Canvas 지우기
+      clearCanvas();
     } else if (!imageData) {
       console.error('이미지 데이터를 가져올 수 없습니다');
     }
