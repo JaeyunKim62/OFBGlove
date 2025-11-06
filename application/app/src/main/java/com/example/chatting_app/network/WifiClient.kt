@@ -36,7 +36,7 @@ class WifiClient(private val context: Context) {
     
     companion object {
         private const val TAG = "WifiClient"
-        private const val BUFFER_SIZE = 1024
+        private const val BUFFER_SIZE = 4096
     }
     
     /**

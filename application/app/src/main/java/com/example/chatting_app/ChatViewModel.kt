@@ -1224,11 +1224,7 @@ class ChatViewModel : ViewModel() {
                     // TTS로 읽어주기
                     speakText(text)
                     
-                    // 점자 변환 및 WiFi 전송
-                    val braille = brailleConverter?.convertToBraille(text) ?: ""
-                    sendBrailleToWifi(text, braille)
-                    
-                    Log.d("ChatViewModel", "필담 이미지 처리 완료: '$text' -> 점자: '$braille'")
+                    Log.d("ChatViewModel", "필담 이미지 처리 완료: '$text'")
                 } else {
                     Log.w("ChatViewModel", "OCR 인식 실패 또는 텍스트 없음")
                 }

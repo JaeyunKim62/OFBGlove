@@ -20,9 +20,9 @@ class TextRecognizerManager {
     companion object {
         private const val TAG = "TextRecognizerManager"
         // 문자 크기 범위 (여백 포함): 20-40 픽셀 (실제 문자는 16x16 ~ 24x24)
-        private const val MIN_CHAR_SIZE = 32 // 최소 문자 크기 (픽셀)
-        private const val MAX_CHAR_SIZE = 40 // 최대 문자 크기 (픽셀)
-        private const val TARGET_CHAR_SIZE = 35 // 목표 문자 크기 (픽셀)
+        private const val MIN_CHAR_SIZE = 16 // 최소 문자 크기 (픽셀)
+        private const val MAX_CHAR_SIZE = 30 // 최대 문자 크기 (픽셀)
+        private const val TARGET_CHAR_SIZE = 20 // 목표 문자 크기 (픽셀)
     }
 
     // 기본 라틴 문자 인식 (숫자, 알파벳 지원)
@@ -81,23 +81,26 @@ class TextRecognizerManager {
             return bitmap
         }
         
-        var processed = bitmap
-        
         // 1. 흑백 변환 (OCR에 유리, 색상 정보 불필요)
-        processed = convertToGrayscale(processed)
+        val grayscaleBitmap = convertToGrayscale(bitmap)
         Log.d(TAG, "흑백 변환 완료")
         
         // 2. 최소한의 대비 향상 (텍스트 선명도 향상)
-        processed = enhanceContrast(processed)
+        val enhancedBitmap = enhanceContrast(grayscaleBitmap)
         Log.d(TAG, "대비 향상 완료")
         
-        // 3. 크기 조정 (큰 이미지인 경우 축소)
-        val width = processed.width
-        val height = processed.height
+        // 중간 Bitmap 메모리 해제 (원본이 아니면)
+        if (grayscaleBitmap != bitmap && !grayscaleBitmap.isRecycled) {
+            grayscaleBitmap.recycle()
+        }
         
-        // 이미지 크기로부터 추정 문자 크기 계산 (일반적으로 이미지 높이의 1/10 ~ 1/20 정도)
+        // 3. 크기 조정 (큰 이미지인 경우 축소)
+        val width = enhancedBitmap.width
+        val height = enhancedBitmap.height
+        
+        // 이미지 크기로부터 추정 문자 크기 계산
         // 필담 이미지 특성상 텍스트가 중앙에 집중되어 있다고 가정
-        val estimatedCharHeight = minOf(width, height) / 10f // 보수적으로 추정
+        val estimatedCharHeight = minOf(width, height) / 1.3f // 보수적으로 추정
         
         // 추정된 문자 크기가 최대값을 초과하면 이미지 축소
         if (estimatedCharHeight > MAX_CHAR_SIZE) {
@@ -109,24 +112,19 @@ class TextRecognizerManager {
             
             Log.d(TAG, "이미지 축소: ${width}x${height} -> ${newWidth}x${newHeight} (scale: $scale, 추정 문자 크기: ${estimatedCharHeight}px -> ${estimatedCharHeight * scale}px)")
             
-            val scaledBitmap = Bitmap.createScaledBitmap(processed, newWidth, newHeight, true)
+            val scaledBitmap = Bitmap.createScaledBitmap(enhancedBitmap, newWidth, newHeight, true)
             
-            // 처리된 이미지 메모리 해제
-            if (processed != bitmap && !processed.isRecycled) {
-                processed.recycle()
+            // 중간 Bitmap 메모리 해제
+            if (enhancedBitmap != bitmap && !enhancedBitmap.isRecycled) {
+                enhancedBitmap.recycle()
             }
             
             return scaledBitmap
         } else {
             Log.d(TAG, "크기 조정 불필요: 추정 문자 크기 ${estimatedCharHeight}px (범위: ${MIN_CHAR_SIZE}-${MAX_CHAR_SIZE}px)")
+            // 최종 결과는 recycle하지 않음 - enhancedBitmap을 그대로 반환
+            return enhancedBitmap
         }
-        
-        // 원본이 처리된 이미지면 메모리 해제
-        if (processed != bitmap && !processed.isRecycled) {
-            processed.recycle()
-        }
-        
-        return processed
     }
 
     /**
@@ -157,7 +155,7 @@ class TextRecognizerManager {
 
         // 이미지 전처리 (흑백 변환 + 크기 조정)
         // TODO: 전처리 없이 테스트하려면 skipPreprocessing=true로 변경
-        val processedBitmap = preprocessImage(bitmap, skipPreprocessing = true)
+        val processedBitmap = preprocessImage(bitmap, skipPreprocessing = false)
         
         // 전처리된 Bitmap 검증
         if (processedBitmap.isRecycled) {

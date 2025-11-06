@@ -33,7 +33,7 @@ export const HandwritingCanvas: React.FC<HandwritingCanvasProps> = ({
 
     // 그리기 설정
     ctx.strokeStyle = 'black';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
   }, []);
