@@ -558,40 +558,20 @@ function App() {
 
   // 점자 입력 관련 함수들
   const handleBraillePatternComplete = (pattern: BrailleDot[]) => {
+    const binary = pattern.map(d => d.isActive ? '1' : '0').join('');
     const newPattern: BraillePattern = {
       dots: pattern,
       timestamp: Date.now(),
       source: 'web',
-      character: getBrailleCharacter(pattern),
-      binary: pattern.map(d => d.isActive ? '1' : '0').join('')
+      // 공백 패턴(000000)이면 character를 '␣'로 설정
+      character: binary === '000000' ? '␣' : getBrailleCharacter(pattern),
+      binary: binary
     };
 
     // 입력된 패턴을 상태에 추가
     setInputPatterns(prev => [...prev, newPattern]);
-    // 웹 입력은 전송 시점까지 버퍼에만 저장 + 공백 2회 연속 시 전송
-    setWebInputBuffer(prev => {
-      const proposed = [...prev, newPattern];
-      const len = proposed.length;
-      const isSpace = (p: BraillePattern) => p.binary === '000000';
-      if (len >= 2 && isSpace(proposed[len - 1]) && isSpace(proposed[len - 2])) {
-        // 공백 2개가 쌓이면 전송
-        // 버퍼의 모든 내용을 전송하고 버퍼 초기화
-        const spacePattern = createSpacePattern('web');
-        setCurrentSentenceSequence(seq => [...seq, ...prev, spacePattern]);
-        setBrailleSequence(seq => [...seq, ...prev, spacePattern]);
-        setSequenceWithSeparators(seq => [
-          ...seq,
-          ...prev.map(p => ({ type: 'braille', pattern: p })),
-          { type: 'braille', pattern: spacePattern }
-        ]);
-        prev.forEach(p => dataCollectorRef.current?.addPattern(p));
-        dataCollectorRef.current?.addPattern(spacePattern);
-        addLog('success', `공백×2 전송: "${patternsToText(prev.filter(p => !isSpace(p)))}"`);
-        // 버퍼 초기화 (전송 완료)
-        return [];
-      }
-      return proposed;
-    });
+    // 웹 입력은 전송 시점까지 버퍼에만 저장
+    setWebInputBuffer(prev => [...prev, newPattern]);
     
     // 데이터 수집기는 데모 화면 최소화 정책으로 웹 입력 버퍼 단계에서는 추가하지 않음
     
@@ -668,7 +648,8 @@ function App() {
       ],
       timestamp: Date.now(),
       source: source,
-      character: ' ',
+      // 웹 입력일 때는 ␣로, 그 외에는 공백으로
+      character: source === 'web' ? '␣' : ' ',
       binary: '000000'
     };
   };
@@ -813,14 +794,14 @@ function App() {
         });
         
         // sequenceWithSeparators에도 추가
-        setSequenceWithSeparators(prev => {
-          const lastItem = prev[prev.length - 1];
+        setSequenceWithSeparators(seq => {
+          const lastItem = seq[seq.length - 1];
           if (lastItem && lastItem.type === 'braille' && lastItem.pattern.binary === '000000') {
             console.log('⚠️ sequenceWithSeparators에서 공백 패턴 중복 감지');
-            return prev; // 중복이면 상태 변경 없음
+            return seq; // 중복이면 상태 변경 없음
           }
           console.log('✅ sequenceWithSeparators에 공백 패턴 추가');
-          return [...prev, { type: 'braille', pattern }];
+          return [...seq, { type: 'braille', pattern }];
         });
         
         // dataCollector에 추가
@@ -1253,42 +1234,30 @@ function App() {
       return;
     }
 
-    // 버퍼 내 마지막 공백 이후부터 현재 단어 추출
-    let start = webInputBuffer.length - 1;
-    for (let i = webInputBuffer.length - 1; i >= 0; i--) {
-      if (webInputBuffer[i].binary === '000000') { start = i + 1; break; }
-      if (i === 0) start = 0;
-    }
-    const wordPatterns = webInputBuffer.slice(start).filter(p => p.binary !== '000000');
-    if (wordPatterns.length === 0) {
-      addLog('warning', '현재 단어가 비어있습니다');
-      return;
-    }
-
-    // 단어 텍스트 추출
-    const wordText = patternsToText(wordPatterns);
-
-    // 문장에 단어 패턴 추가 후 공백 추가
-    const spacePattern = createSpacePattern('web');
-    setCurrentSentenceSequence(prev => [...prev, ...wordPatterns, spacePattern]);
-    setBrailleSequence(prev => [...prev, ...wordPatterns, spacePattern]);
+    // 더블클릭 시 공백 2개를 추가해서 전송 (공백 1개는 일반 문자처럼 처리)
+    const spacePattern1 = createSpacePattern('web');
+    const spacePattern2 = createSpacePattern('web');
+    
+    // 버퍼의 모든 내용 + 공백 2개를 전송
+    setCurrentSentenceSequence(prev => [...prev, ...webInputBuffer, spacePattern1, spacePattern2]);
+    setBrailleSequence(prev => [...prev, ...webInputBuffer, spacePattern1, spacePattern2]);
     setSequenceWithSeparators(prev => [
       ...prev,
-      ...wordPatterns.map(p => ({ type: 'braille', pattern: p })),
-      { type: 'braille', pattern: spacePattern }
+      ...webInputBuffer.map(p => ({ type: 'braille', pattern: p })),
+      { type: 'braille', pattern: spacePattern1 },
+      { type: 'braille', pattern: spacePattern2 }
     ]);
 
     // 데이터 수집 반영
-    wordPatterns.forEach(p => dataCollectorRef.current?.addPattern(p));
-    dataCollectorRef.current?.addPattern(spacePattern);
+    webInputBuffer.forEach(p => dataCollectorRef.current?.addPattern(p));
+    dataCollectorRef.current?.addPattern(spacePattern1);
+    dataCollectorRef.current?.addPattern(spacePattern2);
 
-    // 버퍼에서 현재 단어 제거
-    setWebInputBuffer(prev => prev.slice(0, start));
+    const wordText = patternsToText(webInputBuffer);
+    addLog('success', `더블클릭 전송: "${wordText}"`);
 
-    addLog('success', `현재 단어 커밋: "${wordText}"`);
-    
-    // TTS로 단어 읽기
-    speakText(wordText);
+    // 버퍼 초기화
+    setWebInputBuffer([]);
   };
 
   const handleClearData = () => {
@@ -1323,16 +1292,61 @@ function App() {
   // 현재 단어 텍스트(웹 입력 버퍼 기준)
   const currentWebWordText = (() => {
     if (webInputBuffer.length === 0) return '';
-    // 버퍼 내 마지막 공백 이후의 연속 패턴들만 단어로 간주
-    let start = webInputBuffer.length - 1;
+    
+    // 마지막에서부터 연속된 공백 개수 확인
+    let spaceCount = 0;
     for (let i = webInputBuffer.length - 1; i >= 0; i--) {
-      if (webInputBuffer[i].binary === '000000') { start = i + 1; break; }
-      if (i === 0) start = 0;
+      if (webInputBuffer[i].binary === '000000') {
+        spaceCount++;
+      } else {
+        break;
+      }
     }
-    return patternsToText(webInputBuffer.slice(start)).replace(/\?/g, '');
+    
+    // 공백이 2개 이상이면 빈 문자열 (전송 대기 상태)
+    if (spaceCount >= 2) return '';
+    
+    // 공백 1개는 일반 문자처럼 처리 - 전체 버퍼 내용 표시 (공백 포함)
+    return webInputBuffer.map(p => (p.binary === '000000' ? '␣' : (p.character || '?'))).join('').replace(/\?/g, '');
   })();
   const lastBufferedIsSpace = webInputBuffer.length > 0 && webInputBuffer[webInputBuffer.length - 1].binary === '000000';
   const webBufferPreview = webInputBuffer.map(p => (p.binary === '000000' ? '␣' : (p.character || '?'))).join('');
+
+  // 공백 2개 연속 입력 시 자동 전송 처리
+  useEffect(() => {
+    const isSpace = (p: BraillePattern) => p.binary === '000000';
+    const len = webInputBuffer.length;
+    
+    // 공백 2개가 연속으로 있는지 확인
+    if (len >= 2 && isSpace(webInputBuffer[len - 1]) && isSpace(webInputBuffer[len - 2])) {
+      // 마지막 공백 2개를 제외한 내용을 전송
+      const contentToSend = webInputBuffer.slice(0, len - 2);
+      
+      if (contentToSend.length === 0) {
+        // 전송할 내용이 없으면 버퍼만 초기화
+        setWebInputBuffer([]);
+        return;
+      }
+      
+      const spacePattern = createSpacePattern('web');
+      
+      // 전송 실행
+      setCurrentSentenceSequence(prev => [...prev, ...contentToSend, spacePattern]);
+      setBrailleSequence(prev => [...prev, ...contentToSend, spacePattern]);
+      setSequenceWithSeparators(prev => [
+        ...prev,
+        ...contentToSend.map(p => ({ type: 'braille', pattern: p })),
+        { type: 'braille', pattern: spacePattern }
+      ]);
+      
+      contentToSend.forEach(p => dataCollectorRef.current?.addPattern(p));
+      dataCollectorRef.current?.addPattern(spacePattern);
+      addLog('success', `공백×2 전송: "${patternsToText(contentToSend.filter(p => !isSpace(p)))}"`);
+      
+      // 버퍼 초기화
+      setWebInputBuffer([]);
+    }
+  }, [webInputBuffer]); // webInputBuffer가 변경될 때만 실행
 
   return (
     <div className="App">
