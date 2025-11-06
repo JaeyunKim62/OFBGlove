@@ -74,6 +74,9 @@ function App() {
   const isRealTimeInputRef = useRef<boolean>(false); // 실시간 입력 상태 추적
   const lastPatternRef = useRef<{ binary: string; character: string; source: string } | null>(null); // 마지막 패턴 (중복 체크용)
   const isWebInputActiveRef = useRef<boolean>(false); // 웹 입력 활성 상태 추적 (타이머 설정 방지용)
+  const ttsQueueRef = useRef<string[]>([]);
+  const isTtsPlayingRef = useRef<boolean>(false);
+  const fixedVoiceRef = useRef<SpeechSynthesisVoice | null>(null); // 고정된 음성
 
   // 로그 추가 함수
   const addLog = (type: LogEntry['type'], message: string, data?: any) => {
@@ -572,6 +575,11 @@ function App() {
     setInputPatterns(prev => [...prev, newPattern]);
     // 웹 입력은 전송 시점까지 버퍼에만 저장
     setWebInputBuffer(prev => [...prev, newPattern]);
+    
+    // 버퍼에 추가될 때 소리로 재생 (공백이 아닌 경우)
+    if (newPattern.binary !== '000000' && newPattern.character && newPattern.character !== '?') {
+      speakText(newPattern.character);
+    }
     
     // 데이터 수집기는 데모 화면 최소화 정책으로 웹 입력 버퍼 단계에서는 추가하지 않음
     
@@ -1099,6 +1107,13 @@ function App() {
       ...webInputBuffer.map(p => ({ type: 'braille', pattern: p }))
     ]);
 
+    // 추가된 패턴들을 소리로 재생 (큐에 추가)
+    webInputBuffer.forEach((pattern) => {
+      if (pattern.binary !== '000000' && pattern.character && pattern.character !== '?') {
+        speakText(pattern.character);
+      }
+    });
+
     // 데이터 수집기 반영
     webInputBuffer.forEach(p => dataCollectorRef.current?.addPattern(p));
 
@@ -1168,63 +1183,108 @@ function App() {
     return null;
   };
 
-  // TTS로 텍스트 읽기 함수 (영어 우선)
-  const speakText = (text: string) => {
-    if (!text || text.trim() === '') return;
+  // 고정된 음성 선택 (한 번만 실행)
+  const getFixedVoice = (): SpeechSynthesisVoice | null => {
+    if (fixedVoiceRef.current) {
+      return fixedVoiceRef.current;
+    }
+
+    if (!('speechSynthesis' in window)) return null;
     
-    // 브라우저 지원 확인
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length === 0) return null;
+
+    // 영어 음성을 우선 선택 (Google 영어 > en-US > en-GB > 기타 영어)
+    const googleEnglish = voices.find(v => 
+      v.lang.startsWith('en') && 
+      (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Enhanced'))
+    );
+    if (googleEnglish) {
+      fixedVoiceRef.current = googleEnglish;
+      return googleEnglish;
+    }
+    
+    const enUS = voices.find(v => v.lang === 'en-US');
+    if (enUS) {
+      fixedVoiceRef.current = enUS;
+      return enUS;
+    }
+    
+    const enGB = voices.find(v => v.lang === 'en-GB');
+    if (enGB) {
+      fixedVoiceRef.current = enGB;
+      return enGB;
+    }
+    
+    const anyEnglish = voices.find(v => v.lang.startsWith('en'));
+    if (anyEnglish) {
+      fixedVoiceRef.current = anyEnglish;
+      return anyEnglish;
+    }
+
+    // 영어가 없으면 첫 번째 음성 사용
+    if (voices.length > 0) {
+      fixedVoiceRef.current = voices[0];
+      return voices[0];
+    }
+
+    return null;
+  };
+
+  // TTS 큐 처리 함수
+  const processTtsQueue = () => {
+    if (isTtsPlayingRef.current || ttsQueueRef.current.length === 0) {
+      return;
+    }
+
+    const text = ttsQueueRef.current.shift();
+    if (!text) return;
+
+    isTtsPlayingRef.current = true;
+
     if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) {
-      console.warn('TTS가 지원되지 않는 브라우저입니다.');
+      isTtsPlayingRef.current = false;
+      processTtsQueue();
       return;
     }
 
     try {
-      // 기존 발화 취소 (중복 방지)
-      window.speechSynthesis.cancel();
-      
       const utterance = new SpeechSynthesisUtterance(text.trim());
       
-      // 텍스트 언어 자동 감지 (영어 우선)
-      const detectedLang = detectLanguage(text);
-      utterance.lang = detectedLang;
-      
-      // 최적의 음성 선택 (영어 우선)
-      const selectedVoice = selectBestVoice(detectedLang);
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-        console.log('선택된 음성:', selectedVoice.name, `(${selectedVoice.lang})`);
+      // 고정된 음성 사용
+      const fixedVoice = getFixedVoice();
+      if (fixedVoice) {
+        utterance.voice = fixedVoice;
+        utterance.lang = fixedVoice.lang; // 음성의 언어 사용
       }
-      
-      // 영어 음성 최적화 설정
-      if (detectedLang === 'en-US') {
-        utterance.rate = 1.0; // 읽기 속도 (0.1 ~ 10)
-        utterance.pitch = 1.0; // 음높이 (0 ~ 2)
-        utterance.volume = 1.0; // 볼륨 (0 ~ 1)
-      } else {
-        // 한국어 설정
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-        utterance.volume = 1.0;
-      }
-      
-      // 에러 처리
-      utterance.onerror = (event) => {
-        console.error('TTS 오류:', event);
-        addLog('error', 'TTS 재생 오류', event);
-      };
-      
-      // 완료 처리
+
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+
       utterance.onend = () => {
-        console.log('TTS 재생 완료:', text, `(언어: ${detectedLang})`);
+        isTtsPlayingRef.current = false;
+        processTtsQueue();
       };
-      
+
+      utterance.onerror = () => {
+        isTtsPlayingRef.current = false;
+        processTtsQueue();
+      };
+
       window.speechSynthesis.speak(utterance);
-      const voiceInfo = selectedVoice ? ` - ${selectedVoice.name}` : '';
-      addLog('info', `TTS 재생: "${text}" (${detectedLang}${voiceInfo})`);
     } catch (error) {
-      console.error('TTS 초기화 오류:', error);
-      addLog('error', 'TTS 초기화 오류', error);
+      console.error('TTS 오류:', error);
+      isTtsPlayingRef.current = false;
+      processTtsQueue();
     }
+  };
+
+  // TTS로 텍스트 읽기 함수 (영어 우선) - 큐에 추가
+  const speakText = (text: string) => {
+    if (!text || text.trim() === '') return;
+    ttsQueueRef.current.push(text.trim());
+    processTtsQueue();
   };
 
   // 현재 웹 단어를 입력 문장으로 커밋 (다음 더블클릭)
@@ -1234,30 +1294,12 @@ function App() {
       return;
     }
 
-    // 더블클릭 시 공백 2개를 추가해서 전송 (공백 1개는 일반 문자처럼 처리)
+    // 더블클릭 시 공백 2개를 버퍼에 추가 (자동 전송 로직이 처리)
     const spacePattern1 = createSpacePattern('web');
     const spacePattern2 = createSpacePattern('web');
     
-    // 버퍼의 모든 내용 + 공백 2개를 전송
-    setCurrentSentenceSequence(prev => [...prev, ...webInputBuffer, spacePattern1, spacePattern2]);
-    setBrailleSequence(prev => [...prev, ...webInputBuffer, spacePattern1, spacePattern2]);
-    setSequenceWithSeparators(prev => [
-      ...prev,
-      ...webInputBuffer.map(p => ({ type: 'braille', pattern: p })),
-      { type: 'braille', pattern: spacePattern1 },
-      { type: 'braille', pattern: spacePattern2 }
-    ]);
-
-    // 데이터 수집 반영
-    webInputBuffer.forEach(p => dataCollectorRef.current?.addPattern(p));
-    dataCollectorRef.current?.addPattern(spacePattern1);
-    dataCollectorRef.current?.addPattern(spacePattern2);
-
-    const wordText = patternsToText(webInputBuffer);
-    addLog('success', `더블클릭 전송: "${wordText}"`);
-
-    // 버퍼 초기화
-    setWebInputBuffer([]);
+    // 공백 2개를 버퍼에 추가하면 useEffect가 자동으로 전송 처리
+    setWebInputBuffer(prev => [...prev, spacePattern1, spacePattern2]);
   };
 
   const handleClearData = () => {
