@@ -71,6 +71,58 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
     });
   };
 
+  // 키보드 이벤트 핸들러 추가
+  useEffect(() => {
+    if (!isEnabled || !isInputMode) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // 입력 필드에 포커스가 있으면 무시 (텍스트 입력 중일 때)
+      if (
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      // 숫자 키 1~6을 점 1~6에 매핑
+      const keyToDotId: { [key: string]: number } = {
+        'c': 1,
+        'b': 2,
+        'a': 3,
+        'f': 4,
+        'e': 5,
+        'd': 6,
+      };
+
+      const dotId = keyToDotId[event.key];
+      if (dotId) {
+        event.preventDefault();
+        handleDotClick(dotId);
+        return;
+      }
+
+      // Enter 또는 Space: 패턴 확정 (다음 버튼과 동일)
+      if (event.key === '2') {
+        event.preventDefault();
+        handleNextClick();
+        return;
+      }
+
+      // Escape: 패턴 초기화
+      if (event.key === '1') {
+        event.preventDefault();
+        resetPattern();
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isEnabled, isInputMode, currentPattern]);
+
   // 패턴 초기화
   const resetPattern = () => {
     initializePattern();
