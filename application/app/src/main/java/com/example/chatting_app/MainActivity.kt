@@ -141,6 +141,20 @@ fun ChatApp(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
             
+            // OCR 테스트 버튼 (개발용)
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = {
+                        viewModel.testOcrWithImage(context)
+                    }
+                ) {
+                    Text("OCR 테스트 (test_8.png)")
+                }
+            }
+            
             // 기존 채팅 화면
             ChatScreen(
                 modifier = Modifier.fillMaxSize(),

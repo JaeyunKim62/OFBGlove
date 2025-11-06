@@ -30,6 +30,11 @@ import com.example.chatting_app.network.MessageType
 import com.example.chatting_app.network.WifiBrailleTransmitter
 import com.example.chatting_app.network.WifiTextTransmitter
 import com.example.chatting_app.network.WifiSettingsTransmitter
+import com.example.chatting_app.ocr.TextRecognizerManager
+import com.example.chatting_app.ocr.OcrResultListener
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
+import com.example.chatting_app.R
 
 /**
  * ViewModel for managing chat functionality including speech recognition and text-to-speech
@@ -77,6 +82,9 @@ class ChatViewModel : ViewModel() {
     
     // Unified message manager
     private var messageManager: UnifiedMessageManager? = null
+    
+    // OCR manager for 필담 이미지 인식
+    private val textRecognizerManager = TextRecognizerManager()
     
     // WiFi transmitters (UnifiedMessageManager에서 가져옴)
     private var wifiBrailleTransmitter: WifiBrailleTransmitter? = null
@@ -1187,6 +1195,66 @@ class ChatViewModel : ViewModel() {
     }
     
     /**
+     * WiFi 통신으로 받은 필담 이미지 처리
+     * Bitmap 이미지를 받아서 OCR 처리 후 채팅 메시지로 추가합니다.
+     *
+     * @param bitmap 수신한 필담 이미지 Bitmap
+     */
+    fun handleReceivedImage(bitmap: Bitmap) {
+        Log.d("ChatViewModel", "필담 이미지 수신됨, OCR 처리 시작... (크기: ${bitmap.width}x${bitmap.height})")
+        
+        // OCR 처리 (비동기)
+        textRecognizerManager.recognizeText(bitmap, object : OcrResultListener {
+            override fun onResult(text: String?) {
+                if (text != null && text.isNotBlank()) {
+                    Log.d("ChatViewModel", "OCR 인식 결과: '$text'")
+                    
+                    // 인식된 텍스트를 채팅 메시지로 추가
+                    val message = ChatMessage(
+                        content = text,
+                        senderType = SenderType.VISUAL_IMPAIRED_USER
+                    )
+                    addMessage(message)
+                    
+                    // TTS로 읽어주기
+                    speakText(text)
+                    
+                    // 점자 변환 및 WiFi 전송
+                    val braille = brailleConverter?.convertToBraille(text) ?: ""
+                    sendBrailleToWifi(text, braille)
+                    
+                    Log.d("ChatViewModel", "필담 이미지 처리 완료: '$text' -> 점자: '$braille'")
+                } else {
+                    Log.w("ChatViewModel", "OCR 인식 실패 또는 텍스트 없음")
+                }
+            }
+            
+            override fun onError(exception: Exception) {
+                Log.e("ChatViewModel", "OCR 처리 오류", exception)
+            }
+        })
+    }
+    
+    /**
+     * 테스트 이미지로 OCR 테스트 실행
+     * drawable/test_8.png 이미지를 사용하여 OCR 동작을 테스트합니다.
+     */
+    fun testOcrWithImage(context: Context) {
+        try {
+            val drawable = ContextCompat.getDrawable(context, R.drawable.test_8)
+            if (drawable is BitmapDrawable) {
+                val bitmap = drawable.bitmap
+                Log.d("ChatViewModel", "테스트 이미지 로드 완료: ${bitmap.width}x${bitmap.height}")
+                handleReceivedImage(bitmap)
+            } else {
+                Log.e("ChatViewModel", "테스트 이미지를 BitmapDrawable로 변환할 수 없음")
+            }
+        } catch (e: Exception) {
+            Log.e("ChatViewModel", "테스트 이미지 로드 실패", e)
+        }
+    }
+    
+    /**
      * Clean up resources when ViewModel is cleared
      */
     override fun onCleared() {
@@ -1196,6 +1264,7 @@ class ChatViewModel : ViewModel() {
         brailleInputManager?.cleanup()
         brailleInputCollectorJob?.cancel()
         messageManager?.disconnect()
+        textRecognizerManager.close()
     }
 }
 

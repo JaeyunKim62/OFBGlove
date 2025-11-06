@@ -84,19 +84,28 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics")
     
     // ViewModel and Lifecycle
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
+    
+    // Kotlin Coroutines Flow (for StateFlow and MutableStateFlow)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     
     // Activity Result API
     implementation("androidx.activity:activity-ktx:1.9.0")
     implementation("androidx.activity:activity-compose:1.9.0")
-    
+
     // JSON serialization
     implementation("com.google.code.gson:gson:2.10.1")
     
     // Material Icons Extended
     implementation("androidx.compose.material:material-icons-extended:1.5.4")
     
+    // Google ML Kit Text Recognition (일본어 - 숫자, 알파벳, 일본어 인식 지원)
+    // 일본어 패키지는 숫자와 알파벳도 인식할 수 있습니다.
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:1.9.20")
     
