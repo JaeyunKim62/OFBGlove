@@ -46,16 +46,50 @@ class TextRecognizerManager {
     }
 
     /**
-     * 이미지 전처리 (흑백 변환 + 크기 조정)
+     * 최소한의 대비 향상 (텍스트를 더 선명하게, 성능 최소화)
      */
-    private fun preprocessImage(bitmap: Bitmap): Bitmap {
+    private fun enhanceContrast(bitmap: Bitmap): Bitmap {
+        val width = bitmap.width
+        val height = bitmap.height
+        val enhancedBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(enhancedBitmap)
+        val paint = Paint()
+        
+        // 가벼운 대비 향상 (1.3배 - 너무 강하지 않게)
+        val colorMatrix = ColorMatrix(floatArrayOf(
+            1.3f, 0f, 0f, 0f, -15f,    // Red 채널
+            0f, 1.3f, 0f, 0f, -15f,    // Green 채널
+            0f, 0f, 1.3f, 0f, -15f,    // Blue 채널
+            0f, 0f, 0f, 1f, 0f         // Alpha 채널
+        ))
+        paint.colorFilter = ColorMatrixColorFilter(colorMatrix)
+        
+        canvas.drawBitmap(bitmap, 0f, 0f, paint)
+        return enhancedBitmap
+    }
+
+    /**
+     * 이미지 전처리 (흑백 변환 + 최소 대비 향상 + 크기 조정)
+     * @param skipPreprocessing true면 전처리 없이 원본 그대로 사용 (디버깅용)
+     */
+    private fun preprocessImage(bitmap: Bitmap, skipPreprocessing: Boolean = true): Bitmap {
+        // 디버깅: 전처리 없이 원본 그대로 테스트
+        if (skipPreprocessing) {
+            Log.d(TAG, "⚠️ 전처리 건너뛰기 - 원본 이미지 그대로 사용")
+            return bitmap
+        }
+        
         var processed = bitmap
         
         // 1. 흑백 변환 (OCR에 유리, 색상 정보 불필요)
         processed = convertToGrayscale(processed)
         Log.d(TAG, "흑백 변환 완료")
         
-        // 2. 크기 확대 (작은 이미지인 경우)
+        // 2. 최소한의 대비 향상 (텍스트 선명도 향상)
+        processed = enhanceContrast(processed)
+        Log.d(TAG, "대비 향상 완료")
+        
+        // 3. 크기 확대 (작은 이미지인 경우)
         val width = processed.width
         val height = processed.height
         
@@ -72,7 +106,7 @@ class TextRecognizerManager {
             
             val scaledBitmap = Bitmap.createScaledBitmap(processed, newWidth, newHeight, true)
             
-            // 흑백 변환된 이미지 메모리 해제
+            // 대비 향상된 이미지 메모리 해제
             if (processed != bitmap && !processed.isRecycled) {
                 processed.recycle()
             }
@@ -98,16 +132,42 @@ class TextRecognizerManager {
     fun recognizeText(bitmap: Bitmap, listener: OcrResultListener) {
         
         Log.d(TAG, "필담 이미지 텍스트 인식 시작... (크기: ${bitmap.width}x${bitmap.height})")
+        
+        // Bitmap 유효성 검증
+        if (bitmap.isRecycled) {
+            Log.e(TAG, "❌ Bitmap이 이미 재활용되었습니다!")
+            listener.onError(IllegalStateException("Bitmap is recycled"))
+            return
+        }
+        
+        if (bitmap.width <= 0 || bitmap.height <= 0) {
+            Log.e(TAG, "❌ Bitmap 크기가 유효하지 않습니다: ${bitmap.width}x${bitmap.height}")
+            listener.onError(IllegalArgumentException("Invalid bitmap size"))
+            return
+        }
+        
+        Log.d(TAG, "✅ 원본 Bitmap 검증 완료: ${bitmap.width}x${bitmap.height}, Config=${bitmap.config}")
 
         // 이미지 전처리 (흑백 변환 + 크기 조정)
-        val processedBitmap = preprocessImage(bitmap)
+        // TODO: 전처리 없이 테스트하려면 skipPreprocessing=true로 변경
+        val processedBitmap = preprocessImage(bitmap, skipPreprocessing = true)
+        
+        // 전처리된 Bitmap 검증
+        if (processedBitmap.isRecycled) {
+            Log.e(TAG, "❌ 전처리된 Bitmap이 재활용되었습니다!")
+            listener.onError(IllegalStateException("Processed bitmap is recycled"))
+            return
+        }
+        
+        Log.d(TAG, "✅ 전처리된 Bitmap 검증 완료: ${processedBitmap.width}x${processedBitmap.height}, Config=${processedBitmap.config}")
         
         // Bitmap을 ML Kit가 이해하는 InputImage로 변환
         val image: InputImage
         try {
             image = InputImage.fromBitmap(processedBitmap, 0)
+            Log.d(TAG, "✅ InputImage 생성 성공: width=${image.width}, height=${image.height}, rotation=${image.rotationDegrees}")
         } catch (e: Exception) {
-            Log.e(TAG, "InputImage 생성 실패", e)
+            Log.e(TAG, "❌ InputImage 생성 실패", e)
             listener.onError(e)
             // 메모리 해제
             if (processedBitmap != bitmap && !processedBitmap.isRecycled) {
@@ -116,31 +176,73 @@ class TextRecognizerManager {
             return
         }
 
+        Log.d(TAG, "🚀 ML Kit OCR 처리 시작... (InputImage: ${image.width}x${image.height})")
+        
         // 이미지 처리 (비동기)
         recognizer.process(image)
             .addOnSuccessListener { visionText ->
-                // --- 인식 성공 ---
-                Log.d(TAG, "인식된 전체 텍스트: '${visionText.text}'")
+                Log.d(TAG, "✅ ML Kit OCR 처리 완료")
                 
-                // 디버깅: 텍스트 블록 정보 확인
+                // --- ML Kit 인식 결과 상세 로깅 ---
+                Log.d(TAG, "========== ML Kit OCR 결과 ==========")
+                Log.d(TAG, "전체 인식 텍스트: '${visionText.text}'")
+                Log.d(TAG, "전체 텍스트 길이: ${visionText.text.length}")
                 Log.d(TAG, "텍스트 블록 개수: ${visionText.textBlocks.size}")
-                visionText.textBlocks.forEachIndexed { index, block ->
-                    Log.d(TAG, "블록 $index: '${block.text}' (라인 수: ${block.lines.size})")
+                Log.d(TAG, "-----------------------------------")
+                
+                // 각 블록별 상세 정보
+                visionText.textBlocks.forEachIndexed { blockIndex, block ->
+                    val boundingBox = block.boundingBox
+                    Log.d(TAG, "블록[$blockIndex]:")
+                    Log.d(TAG, "  - 텍스트: '${block.text}'")
+                    Log.d(TAG, "  - 텍스트 길이: ${block.text.length}")
+                    Log.d(TAG, "  - 좌표: ${boundingBox?.let { "left=${it.left}, top=${it.top}, right=${it.right}, bottom=${it.bottom}" } ?: "null"}")
+                    Log.d(TAG, "  - 라인 개수: ${block.lines.size}")
+                    Log.d(TAG, "  - 언어: ${block.recognizedLanguage}")
+
+                    // 각 라인별 상세 정보
                     block.lines.forEachIndexed { lineIndex, line ->
-                        Log.d(TAG, "  라인 $lineIndex: '${line.text}' (요소 수: ${line.elements.size})")
+                        val lineBox = line.boundingBox
+                        Log.d(TAG, "    라인[$lineIndex]:")
+                        Log.d(TAG, "      - 텍스트: '${line.text}'")
+                        Log.d(TAG, "      - 텍스트 길이: ${line.text.length}")
+                        Log.d(TAG, "      - 좌표: ${lineBox?.let { "left=${it.left}, top=${it.top}, right=${it.right}, bottom=${it.bottom}" } ?: "null"}")
+                        Log.d(TAG, "      - 요소 개수: ${line.elements.size}")
+                        Log.d(TAG, "      - 각도: ${line.angle}")
+                        Log.d(TAG, "      - 언어: ${line.recognizedLanguage}")
+                        
+                        // 각 요소별 상세 정보
                         line.elements.forEachIndexed { elemIndex, element ->
-                            Log.d(TAG, "    요소 $elemIndex: '${element.text}'")
+                            val elemBox = element.boundingBox
+                            Log.d(TAG, "        요소[$elemIndex]:")
+                            Log.d(TAG, "          - 텍스트: '${element.text}'")
+                            Log.d(TAG, "          - 텍스트 길이: ${element.text.length}")
+                            Log.d(TAG, "          - 좌표: ${elemBox?.let { "left=${it.left}, top=${it.top}, right=${it.right}, bottom=${it.bottom}" } ?: "null"}")
+                            Log.d(TAG, "          - 각도: ${element.angle}")
                         }
                     }
+                    Log.d(TAG, "  ---")
                 }
+                Log.d(TAG, "===================================")
                 
+                // 처리 로직
                 val recognizedText = visionText.text.trim()
                 
                 if (recognizedText.isNotEmpty()) {
-                    Log.d(TAG, "인식 성공: '$recognizedText'")
+                    Log.d(TAG, "✅ 인식 성공: '$recognizedText'")
                     listener.onResult(recognizedText)
                 } else {
-                    Log.w(TAG, "텍스트를 찾지 못했습니다. (블록 수: ${visionText.textBlocks.size})")
+                    Log.w(TAG, "⚠️ 텍스트를 찾지 못했습니다. (블록 수: ${visionText.textBlocks.size})")
+                    if (visionText.textBlocks.isEmpty()) {
+                        Log.w(TAG, "⚠️ 텍스트 블록이 하나도 없습니다.")
+                        Log.w(TAG, "💡 가능한 원인:")
+                        Log.w(TAG, "   1. 이미지에 텍스트가 없음")
+                        Log.w(TAG, "   2. 이미지 품질이 너무 낮음")
+                        Log.w(TAG, "   3. 전처리 과정에서 이미지 손상")
+                        Log.w(TAG, "   → 전처리 없이 테스트해보세요 (skipPreprocessing=true)")
+                    } else {
+                        Log.w(TAG, "⚠️ 블록은 있지만 텍스트가 비어있습니다.")
+                    }
                     listener.onResult(null)
                 }
                 
@@ -151,7 +253,12 @@ class TextRecognizerManager {
             }
             .addOnFailureListener { e ->
                 // --- 인식 실패 ---
-                Log.e(TAG, "텍스트 인식 실패", e)
+                Log.e(TAG, "❌ ML Kit OCR 처리 실패")
+                Log.e(TAG, "========== ML Kit OCR 실패 ==========")
+                Log.e(TAG, "오류 메시지: ${e.message}")
+                Log.e(TAG, "오류 타입: ${e.javaClass.simpleName}")
+                Log.e(TAG, "스택 트레이스:", e)
+                Log.e(TAG, "===================================")
                 listener.onError(e)
                 
                 // 전처리된 이미지가 원본과 다르면 메모리 해제

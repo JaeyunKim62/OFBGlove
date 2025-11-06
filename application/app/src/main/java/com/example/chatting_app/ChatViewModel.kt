@@ -1241,7 +1241,7 @@ class ChatViewModel : ViewModel() {
      */
     fun testOcrWithImage(context: Context) {
         try {
-            val drawable = ContextCompat.getDrawable(context, R.drawable.test_8)
+            val drawable = ContextCompat.getDrawable(context, R.drawable.test_3)
             if (drawable is BitmapDrawable) {
                 val bitmap = drawable.bitmap
                 Log.d("ChatViewModel", "테스트 이미지 로드 완료: ${bitmap.width}x${bitmap.height}")
