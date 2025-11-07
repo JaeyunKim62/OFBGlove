@@ -38,6 +38,13 @@ class UnifiedMessageManager(private val context: Context) {
     }
     
     /**
+     * DOT_PATTERN 수신 콜백 설정
+     */
+    fun setOnDotPatternReceived(callback: (Byte) -> Unit) {
+        wifiClient.onDotPatternReceived = callback
+    }
+    
+    /**
      * WiFi 서버에 연결
      */
     fun connectWifi(ipAddress: String, port: Int = 8888) {

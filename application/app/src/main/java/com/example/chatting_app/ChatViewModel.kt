@@ -885,6 +885,11 @@ class ChatViewModel : ViewModel() {
                 handleReceivedImage(bitmap)
             }
             
+            // DOT_PATTERN 수신 콜백 설정
+            messageManager?.setOnDotPatternReceived { dotsByte ->
+                handleReceivedDotPattern(dotsByte)
+            }
+            
             Log.d("ChatViewModel", "Unified Message Manager 초기화 완료")
         } catch (e: Exception) {
             Log.e("ChatViewModel", "Unified Message Manager 초기화 실패: ${e.message}", e)
@@ -1234,6 +1239,69 @@ class ChatViewModel : ViewModel() {
                 Log.e("ChatViewModel", "OCR 처리 오류", exception)
             }
         })
+    }
+    
+    /**
+     * WiFi 통신으로 받은 DOT_PATTERN 처리
+     * 점자 패턴 바이트를 받아서 텍스트로 변환 후 채팅 메시지로 추가합니다.
+     *
+     * @param dotsByte 수신한 점자 패턴 바이트 (1바이트, 6개 점의 비트마스크)
+     */
+    fun handleReceivedDotPattern(dotsByte: Byte) {
+        Log.d("ChatViewModel", "DOT_PATTERN 수신됨, 점자→텍스트 변환 시작... (0x${dotsByte.toString(16).padStart(2, '0')})")
+        
+        // 점자 패턴을 텍스트로 변환
+        val character = convertBraillePatternToText(dotsByte)
+        
+        if (character != null && character.isNotBlank()) {
+            Log.d("ChatViewModel", "점자 패턴 변환 결과: '$character'")
+            
+            // 변환된 텍스트를 채팅 메시지로 추가
+            val message = ChatMessage(
+                content = character,
+                senderType = SenderType.VISUAL_IMPAIRED_USER
+            )
+            addMessage(message)
+            
+            // TTS로 읽어주기
+            speakText(character)
+            
+            Log.d("ChatViewModel", "DOT_PATTERN 처리 완료: '$character'")
+        } else {
+            Log.w("ChatViewModel", "점자 패턴 변환 실패 또는 알 수 없는 패턴")
+        }
+    }
+    
+    /**
+     * 점자 패턴 바이트를 텍스트로 변환 (기본 매핑테이블)
+     * 
+     * @param dotsByte 점자 패턴 바이트 (Bit 0: 점 1, Bit 1: 점 2, ..., Bit 5: 점 6)
+     * @return 변환된 텍스트 문자 (알 수 없는 패턴이면 null)
+     */
+    private fun convertBraillePatternToText(dotsByte: Byte): String? {
+        // 바이트를 6개 점으로 변환하여 패턴 문자열 생성
+        val pattern = StringBuilder()
+        for (i in 0 until 6) {
+            pattern.append(if ((dotsByte.toInt() and (1 shl i)) != 0) '1' else '0')
+        }
+        val patternString = pattern.toString()
+        
+        Log.d("ChatViewModel", "점자 패턴: $patternString (0x${dotsByte.toString(16).padStart(2, '0')})")
+        
+        // 기본 매핑테이블 (tcpServer.js와 동일, 대문자)
+        val brailleMap = mapOf(
+            "100000" to "A", "110000" to "B", "100100" to "C", "100110" to "D",
+            "100010" to "E", "110100" to "F", "110110" to "G", "110010" to "H",
+            "010100" to "I", "010110" to "J", "101000" to "K", "111000" to "L",
+            "101100" to "M", "101110" to "N", "101010" to "O", "111100" to "P",
+            "111110" to "Q", "111010" to "R", "011100" to "S", "011110" to "T",
+            "101001" to "U", "111001" to "V", "010111" to "W", "101101" to "X",
+            "101111" to "Y", "101011" to "Z", "000000" to " "
+        )
+        
+        val result = brailleMap[patternString]
+        // 대문자를 소문자로 변환 (공백은 그대로 유지)
+        return result?.lowercase()
     }
     
     /**

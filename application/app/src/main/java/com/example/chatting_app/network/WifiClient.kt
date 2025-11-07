@@ -34,6 +34,9 @@ class WifiClient(private val context: Context) {
     // 이미지 수신 콜백 (메인 스레드에서 호출됨)
     var onImageReceived: ((Bitmap) -> Unit)? = null
     
+    // DOT_PATTERN 수신 콜백 (메인 스레드에서 호출됨)
+    var onDotPatternReceived: ((Byte) -> Unit)? = null
+    
     companion object {
         private const val TAG = "WifiClient"
         private const val BUFFER_SIZE = 4096
@@ -155,6 +158,17 @@ class WifiClient(private val context: Context) {
                     Log.d(TAG, "이미지 수신 및 Bitmap 변환 완료: ${it.width}x${it.height}")
                 } ?: run {
                     Log.e(TAG, "Bitmap 변환 실패: 이미지 데이터가 유효하지 않음")
+                }
+            } 
+            // DOT_PATTERN 메시지 처리 (0x01, 웹에서 전송된 점자 패턴)
+            else if (message.messageType == MessageType.DOT_PATTERN && message.data.isNotEmpty()) {
+                // dotsByte (1바이트) 추출
+                val dotsByte = message.data[0]
+                Log.d(TAG, "DOT_PATTERN 수신: 0x${dotsByte.toString(16).padStart(2, '0')}")
+                
+                // 메인 스레드에서 콜백 호출 (UI 업데이트를 위해)
+                Handler(Looper.getMainLooper()).post {
+                    onDotPatternReceived?.invoke(dotsByte)
                 }
             } else {
                 // 다른 메시지는 기존대로 처리
