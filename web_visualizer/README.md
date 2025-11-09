@@ -218,7 +218,7 @@ web_visualizer/
 
 ### 아키텍처 개요
 
-서버는 **TCP 서버**와 **WebSocket 서버**로 분리되어 있으며, 서로 다른 클라이언트 타입을 지원합니다:
+서버는 **TCP 서버**와 **WebSocket 서버**로 통합되어 있으며, 서로 다른 클라이언트 타입을 지원합니다:
 
 ```
 ESP32/Android 앱          웹 브라우저
@@ -247,136 +247,25 @@ TCP 서버 (8888)      WebSocket 서버 (8889)
    - ESP32/Android: 바이너리 프로토콜로 효율적인 데이터 전송
    - 웹 브라우저: JSON 프로토콜로 JavaScript 친화적 처리
 
-### TCP 프로토콜 (ESP32/Android 앱 ↔ 서버)
+### 주요 메시지 타입
 
-- **포트**: 8888
-- **프로토콜**: GATT 호환 바이너리 프로토콜
-- **메시지 구조**: `[헤더 4바이트][데이터 N바이트]`
-  - 헤더: 메시지 타입(1) + 데이터 길이(2, Little Endian) + 체크섬(1)
+**TCP 프로토콜 (포트 8888):**
+- **Android 앱 → 서버**: `BRAILLE_SEQUENCE` (0x08) - 점자 시퀀스 전송
+- **ESP32 → 서버**: `PATTERN_COMPLETE` (0x03) - 점자 패턴 전송
+- **웹 → 서버**: `dot_pattern` (JSON) - 점자 패턴 전송
 
-**통신 구조:**
-- **Android 앱 → 서버**: `BRAILLE_SEQUENCE` (0x08)만 사용 (점자 패턴 일괄 전송)
-- **ESP32 → 서버**: `PATTERN_COMPLETE` (0x03) 또는 `DOT_PATTERN` (0x01) 사용 가능 (개별 패턴 전송)
+**WebSocket 프로토콜 (포트 8889):**
+- **서버 → 웹**: `braille_pattern`, `word_separator`, `sentence_separator` 등
+- **웹 → 서버**: `dot_pattern`, `image_data`, `get_status` 등
 
-**송신 메시지 (클라이언트 → 서버)**
+### 상세 프로토콜 문서
 
-#### Android 앱에서 사용하는 메시지
+프로토콜의 상세 내용은 [protocol.md](../protocol.md)를 참조하세요.
 
-**`0x08` - BRAILLE_SEQUENCE** ⭐
-- **용도**: 점자 시퀀스 전송 (Android 앱에서 점자 패턴을 전송하는 유일한 방식)
-- **데이터**: `[패턴 개수(1바이트)][패턴1(1바이트)][패턴2(1바이트)]...`
-- **설명**:
-  - 첫 바이트: 패턴 개수 (최대 255개)
-  - 이후 바이트들: 각 패턴 (6개 점을 1바이트로 압축)
-  - Bit 0: 점 1, Bit 1: 점 2, ..., Bit 5: 점 6
-
-#### ESP32에서 사용 가능한 메시지
-
-**`0x01` - DOT_PATTERN**
-- **용도**: 개별 점 터치 이벤트
-- **데이터**: `[dotIndex(1바이트)]` (0-5)
-- **설명**: 단일 점의 터치 이벤트 (ESP32에서 사용)
-
-**`0x02` - DOT_RELEASE**
-- **용도**: 점 릴리즈 이벤트
-- **데이터**: `[dotIndex(1바이트)]` (0-5)
-- **설명**: 단일 점의 릴리즈 이벤트 (ESP32에서 사용)
-
-**`0x03` - PATTERN_COMPLETE**
-- **용도**: 단일 패턴 완성
-- **데이터**: `[dotsByte(1바이트)]`
-- **설명**: 6개 점을 1바이트로 압축한 단일 패턴 (ESP32에서 사용)
-
-#### 공통 메시지
-
-**`0x04` - CLEAR**: 초기화
-**`0x05` - WORD_SEPARATOR**: 단어 구분자 (공백)
-**`0x06` - SENTENCE_SEPARATOR**: 문장 구분자
-**`0x07` - BRAILLE_SEPARATOR**: 점자 구분자
-**`0x10` - TEXT_MESSAGE**: 텍스트 메시지
-**`0x20` - SETTINGS**: 설정
-**`0x30` - IMAGE_DATA**: 이미지 데이터 (필담 OCR용, 웹 → 앱)
-
-**수신 메시지 (서버 → 클라이언트)**
-- `0x81`: STATUS_UPDATE - 상태 업데이트
-- `0x82`: MESSAGE_RECEIVED - 메시지 수신 확인
-- `0x83`: SETTINGS_UPDATED - 설정 업데이트 확인
-
-### WebSocket 프로토콜 (웹 클라이언트 ↔ 서버)
-
-- **포트**: 8889
-- **프로토콜**: JSON 메시지 (WebSocket 표준)
-- **주요 메시지 타입**:
-
-**수신 (서버 → 클라이언트)**
-- `braille_pattern`: 점자 패턴 수신
-  ```json
-  {
-    "type": "braille_pattern",
-    "pattern": [true, false, false, true, true, false],
-    "binary": "100110",
-    "character": "D",
-    "source": "esp32" | "web" | "demo",
-    "timestamp": 1234567890
-  }
-  ```
-- `word_separator`, `sentence_separator`, `braille_separator`: 구분자 메시지
-- `server_log`: 서버 로그
-- `status`: 서버 상태 응답
-- `clients`: 클라이언트 목록 응답
-
-**송신 (클라이언트 → 서버)**
-- `dot_pattern`: 점자 패턴 전송
-  ```json
-  {
-    "type": "dot_pattern",
-    "dotsByte": 49  // 0x31 = 점 1,4,5 활성
-  }
-  ```
-- `image_data`: 이미지 데이터 전송 (필담 OCR용)
-- `get_status`: 서버 상태 요청
-- `get_clients`: 클라이언트 목록 요청
-
-### 통신 흐름 예시
-
-**Android 앱 → 웹 브라우저:**
-```
-Android 앱
-  ↓ [BRAILLE_SEQUENCE: 0x08 0x03 0x00 0x02 0x02 0x01 0x03]
-  // "AB" 시퀀스 (개수=2, A=0x01, B=0x03)
-TCP 서버 (파싱)
-  ↓ [메모리 내 변환 - 시퀀스를 개별 패턴으로 분해]
-  ↓ [JSON: {"type":"braille_pattern",...}]
-WebSocket 서버 (브로드캐스트)
-  ↓
-웹 브라우저 (실시간 시각화)
-```
-
-**ESP32 → 웹 브라우저:**
-```
-ESP32
-  ↓ [PATTERN_COMPLETE: 0x03 0x01 0x00 0x31 0x31]
-  // 단일 패턴 (점 1,4,5 활성)
-TCP 서버 (파싱)
-  ↓ [메모리 내 변환]
-  ↓ [JSON: {"type":"braille_pattern",...}]
-WebSocket 서버 (브로드캐스트)
-  ↓
-웹 브라우저 (실시간 시각화)
-```
-
-**웹 브라우저 → Android 앱/ESP32:**
-```
-웹 브라우저
-  ↓ [JSON: {"type":"dot_pattern","dotsByte":49}]
-WebSocket 서버 (파싱)
-  ↓ [메모리 내 변환]
-  ↓ [바이너리: 0x03 0x01 0x00 0x31 0x31]
-  // PATTERN_COMPLETE로 변환
-TCP 서버 (브로드캐스트)
-  ↓
-Android 앱 / ESP32
-```
+- TCP 프로토콜 상세 (메시지 구조, 모든 메시지 타입)
+- WebSocket 프로토콜 상세 (JSON 메시지 형식)
+- 통신 흐름 예시
+- 점자 패턴 인코딩 방법
 
 ## 🎨 UI 구성
 

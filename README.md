@@ -554,25 +554,27 @@ main          # 안정 버전
 ### 관련 기술 문서
 
 ```
+루트 문서:
+├── protocol.md                          # 통합 통신 프로토콜 문서
+├── ocr_plan.md                          # 필담 OCR 구현 계획
+└── plan.md                              # 프로젝트 구현 계획
+
 application/
+├── README.md                             # Android 앱 가이드
 ├── DEVELOPMENT_INSTRUCTIONS.md          # 개발 가이드
 ├── BRAILLE_INPUT_IMPLEMENTATION.md      # 점자 입력 상세
 ├── BLE_GATT_ARCHITECTURE.md            # BLE 아키텍처
 ├── SIMPLE_BRAILLE_DOT_PROTOCOL.md      # 간단한 점자 점 프로토콜
 ├── WIFI_PROTOTYPE_PROTOCOL.md          # WiFi 프로토타입 프로토콜
-├── PROJECT_IMPROVEMENT_PROPOSAL.md      # 개선 제안서
-└── README_KO.md                         # 한글 README
+└── PROJECT_IMPROVEMENT_PROPOSAL.md      # 개선 제안서
 
 web_visualizer/
 ├── README.md                             # 웹 비주얼라이저 가이드
 └── WEB_VISUALIZER_DEVELOPMENT_GUIDE.md  # 웹 개발 가이드
 
 wearable/
-└── README.md                            # 하드웨어 가이드
-
-루트 문서:
-├── ocr_plan.md                          # 필담 OCR 구현 계획
-└── plan.md                              # 프로젝트 구현 계획
+├── README.md                            # ESP32 장갑 가이드
+└── ESP_APP_COMMUNICATION.md            # ESP32와 앱 통신 상세 문서
 ```
 
 ---
