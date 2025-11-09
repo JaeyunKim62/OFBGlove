@@ -62,8 +62,10 @@ OFBGlove는 이러한 한계를 극복하기 위해:
   - 실시간 변환 (<10ms)
 - **음성 합성 (TTS)**: 변환된 텍스트를 음성으로 변환
 - **통신 프로토콜**:
-  - **BLE GATT**: 최적화된 2-byte 바이너리 프로토콜
-  - **WiFi Socket**: GATT 호환 바이너리 프로토콜 (이미지 데이터 지원)
+  - **WiFi Socket**: GATT 호환 바이너리 프로토콜 (주 통신 방식)
+    - 앱 → ESP32/웹: `BRAILLE_SEQUENCE` (0x08) - 점자 시퀀스 전송
+    - ESP32/웹 → 앱: `PATTERN_COMPLETE` (0x03) - 점자 패턴 전송
+  - **BLE GATT**: 최적화된 2-byte 바이너리 프로토콜 (선택사항)
 - **점자 입력**: 6-dot 인터랙티브 그리드
 - **이미지 수신**: 필담(손글씨) 이미지 수신 및 OCR 처리 지원
 - **UI/UX**: Jetpack Compose + Material Design 3
@@ -178,11 +180,22 @@ web_visualizer/
 **Wearable Haptic Module의 하드웨어 구현체**
 
 #### 주요 컴포넌트
-- **ESP32 MCU**: 양방향 통신 및 모터 제어
-- **BLE Server**: Android 앱과의 실시간 통신
-- **WiFi Client**: 웹 비주얼라이저 연동
+- **ESP32 MCU**: 양방향 통신 및 모터 제어 (WiFi TCP 서버, 포트 8888)
+- **WiFi TCP 서버**: Android 앱과의 실시간 통신 (주 통신 방식)
+- **BLE Server**: Android 앱과의 Bluetooth 통신 (선택사항)
 - **진동 모터**: 6개 점자 점 표현
-- **버튼 센서**: 사용자 입력 감지
+- **입력 장치**: 사용자 점자 입력 감지
+
+#### 통신 구조
+```
+Android 앱 (클라이언트) ←→ ESP32 (서버, 포트 8888)
+```
+
+- **ESP32**: 서버 역할 (WiFi TCP 서버, 포트 8888)
+- **Android 앱**: 클라이언트 역할 (ESP32에 연결)
+- **통신 프로토콜**: GATT 호환 바이너리 프로토콜
+  - 앱 → ESP32: `BRAILLE_SEQUENCE` (0x08) - 점자 시퀀스 전송
+  - ESP32 → 앱: `PATTERN_COMPLETE` (0x03) - 점자 패턴 전송
 
 #### 하드웨어 사양
 ```yaml
@@ -196,22 +209,29 @@ MCU: ESP32 (Dual-core, BLE + WiFi)
 #### 파일 구조
 ```
 wearable/
-├── esp32_ble_server.ino        # BLE 서버 (Android 앱용)
-├── esp32_web_client.ino        # WiFi 클라이언트 (웹용)
-├── esp32_wifi_server/          # ESP32 WiFi 서버 코드
-├── python_wifi_server.py       # Python WiFi 서버 (레거시)
-├── websocket_server.py         # WebSocket 서버
-├── glove/                      # 장갑 하드웨어 관련 파일
-└── visualizer/                 # 시각화 관련 파일
+├── esp32_tcp_server/           # ESP32 WiFi TCP 서버 (Android 앱용)
+│   └── esp32_tcp_server.ino    # WiFi TCP 서버 코드
+├── esp32_ble_server.ino        # BLE 서버 (Android 앱용, 선택사항)
+├── esp32_web_client.ino        # WiFi 클라이언트 (레거시)
+├── websocket_server.py         # WebSocket 서버 (레거시)
+├── ESP_APP_COMMUNICATION.md    # ESP32와 앱 간 통신 프로토콜 상세 문서
+└── README.md                    # ESP32 장갑 개발 가이드
 ```
 
 #### 업로드 방법
 ```bash
 # Arduino IDE에서 열기
-1. esp32_ble_server.ino 또는 esp32_web_client.ino 선택
+1. esp32_tcp_server/esp32_tcp_server.ino 열기
 2. 보드: ESP32 Dev Module 선택
-3. 포트 선택 후 업로드
+3. WiFi SSID와 비밀번호 설정
+4. 포트 선택 후 업로드
+5. 시리얼 모니터에서 IP 주소 확인 (115200 baud)
 ```
+
+#### 통신 프로토콜
+- **수신 (앱 → ESP32)**: `BRAILLE_SEQUENCE` (0x08) - 점자 시퀀스 수신
+- **송신 (ESP32 → 앱)**: `PATTERN_COMPLETE` (0x03) - 점자 패턴 전송
+- 자세한 프로토콜: [ESP_APP_COMMUNICATION.md](wearable/ESP_APP_COMMUNICATION.md)
 
 ---
 
