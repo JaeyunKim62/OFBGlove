@@ -63,8 +63,9 @@ OFBGlove는 이러한 한계를 극복하기 위해:
 - **음성 합성 (TTS)**: 변환된 텍스트를 음성으로 변환
 - **통신 프로토콜**:
   - **BLE GATT**: 최적화된 2-byte 바이너리 프로토콜
-  - **WiFi Socket**: JSON 기반 확장 프로토콜
+  - **WiFi Socket**: GATT 호환 바이너리 프로토콜 (이미지 데이터 지원)
 - **점자 입력**: 6-dot 인터랙티브 그리드
+- **이미지 수신**: 필담(손글씨) 이미지 수신 및 OCR 처리 지원
 - **UI/UX**: Jetpack Compose + Material Design 3
 
 #### 기술 스택
@@ -135,6 +136,7 @@ npm run dev
 - **실시간 점자 시각화**: 중앙 점자 셀에 현재 패턴 표시 (소스별 색상 구분)
 - **문장 시퀀스**: 입력 문장(web)과 수신 문장(esp32/demo) 분리 표시
 - **점자 입력**: 6점 점자 그리드로 직접 입력 (버퍼 관리, 자동 커밋)
+- **필담 입력**: 손글씨 캔버스를 통한 숫자/알파벳 입력 및 OCR 전송
 - **재생 제어**: 문장 재생, 다시듣기, 재생 모드 및 속도 조절
 - **단어 반복**: 문장 완성 시 첫 단어 자동 반복 재생
 - **TTS 통합**: 단어 커밋 시 자동 음성 출력 (영어/한국어 자동 감지)
@@ -150,18 +152,20 @@ web_visualizer/
 │   ├── components/
 │   │   ├── BrailleCell.tsx        # 점자 셀 컴포넌트 (2×3)
 │   │   ├── BrailleInput.tsx       # 점자 입력 컴포넌트
+│   │   ├── HandwritingCanvas.tsx   # 필담 입력 캔버스 (OCR용)
 │   │   ├── ConnectionInfo.tsx     # 연결 정보 컴포넌트
 │   │   └── ServerLog.tsx          # 서버 로그 컴포넌트
 │   ├── services/
-│   │   └── WebSocketService.ts     # WebSocket 통신 서비스
+│   │   └── WebSocketService.ts    # WebSocket 통신 서비스
 │   ├── server/
-│   │   ├── brailleServer.js        # 통합 서버 (TCP + WebSocket)
-│   │   └── tcpServer.js            # TCP 서버 구현
+│   │   ├── brailleServer.js       # 통합 서버 (TCP + WebSocket)
+│   │   └── tcpServer.js           # TCP 서버 구현
 │   ├── types/
 │   │   ├── braille.ts             # 점자 타입 정의
 │   │   └── websocket.ts           # WebSocket 타입 정의
 │   └── utils/
 │       ├── dataCollector.ts       # 데이터 수집 유틸리티
+│       ├── imageUtils.ts          # 이미지 처리 유틸리티
 │       └── networkUtils.ts        # 네트워크 유틸리티
 └── public/
     └── glove.png                  # 장갑 이미지 (배경용)
@@ -194,9 +198,11 @@ MCU: ESP32 (Dual-core, BLE + WiFi)
 wearable/
 ├── esp32_ble_server.ino        # BLE 서버 (Android 앱용)
 ├── esp32_web_client.ino        # WiFi 클라이언트 (웹용)
-├── python_wifi_server.py       # Python WiFi 서버
+├── esp32_wifi_server/          # ESP32 WiFi 서버 코드
+├── python_wifi_server.py       # Python WiFi 서버 (레거시)
 ├── websocket_server.py         # WebSocket 서버
-└── glove/                      # 장갑 하드웨어 관련 파일
+├── glove/                      # 장갑 하드웨어 관련 파일
+└── visualizer/                 # 시각화 관련 파일
 ```
 
 #### 업로드 방법
@@ -205,6 +211,56 @@ wearable/
 1. esp32_ble_server.ino 또는 esp32_web_client.ino 선택
 2. 보드: ESP32 Dev Module 선택
 3. 포트 선택 후 업로드
+```
+
+---
+
+### 4. `vibration_module/` - STM32 진동 모듈
+
+**독립 진동 모듈 하드웨어 및 펌웨어**
+
+#### 주요 구성
+- **STM32G031 MCU**: 저전력 ARM Cortex-M0+ 프로세서
+- **진동 모터 제어**: PWM 기반 정밀 제어
+- **KiCad 하드웨어 설계**: PCB 설계 및 제작 파일
+- **CMake 빌드 시스템**: 크로스 플랫폼 펌웨어 빌드
+
+#### 하드웨어 사양
+```yaml
+MCU: STM32G031 (ARM Cortex-M0+, 64KB Flash, 8KB RAM)
+통신: UART, I2C, SPI
+전원: 3.3V
+폼팩터: 모듈형 설계 (장갑에 통합 가능)
+```
+
+#### 폴더 구조
+```
+vibration_module/
+├── firmware/                   # STM32 펌웨어 소스
+│   ├── Core/                   # 메인 펌웨어 코드
+│   ├── Drivers/                # STM32 HAL 드라이버
+│   └── CMakeLists.txt          # CMake 빌드 설정
+└── hardware/                   # KiCad 하드웨어 설계
+    ├── gerber/                 # PCB 제작 파일
+    └── vibration_module.kicad_pro  # KiCad 프로젝트
+```
+
+---
+
+### 5. `gr_visualizer/` - Python WiFi 서버
+
+**프로토타입 테스트용 Python 서버**
+
+#### 주요 기능
+- **ESP32 호환 프로토콜**: Arduino 서버와 동일한 프로토콜
+- **실시간 로깅**: 모든 메시지와 상태 변화 출력
+- **점자 패턴 표시**: 현재 점자 상태 실시간 확인
+- **체크섬 검증**: 데이터 무결성 보장
+
+#### 파일 구조
+```
+gr_visualizer/
+└── python_wifi_server.py       # Python WiFi 서버
 ```
 
 ---
@@ -303,18 +359,34 @@ Byte 1: 데이터 (점자 점 비트마스크 또는 기타 데이터)
 
 ### WiFi Socket 프로토콜 (App ↔ TCP Server ↔ WebSocket Server)
 
-#### TCP 프로토콜 (Android 앱 → TCP 서버, 포트 8888)
-```
-3바이트 바이너리 프로토콜:
-[메시지 타입(1바이트)][점자 점(1바이트)][체크섬(1바이트)]
+#### GATT 호환 프로토콜 (Android 앱 ↔ TCP 서버, 포트 8888)
 
-메시지 타입:
-- 0x01: 점 상태 업데이트 (DOT_UPDATE)
-- 0x02: 점 상태 초기화 (CLEAR)
-- 0x03: 점자 입력 완료 (COMPLETE)
-
-점자 점: 6비트 비트마스크 (비트 0-5 = 점 1-6)
+**메시지 헤더 구조 (4바이트)**
 ```
+[메시지 타입(1바이트)][데이터 길이(2바이트, Little Endian)][체크섬(1바이트)]
+```
+
+**메시지 타입 (GATT 호환)**
+```
+송신 메시지 (앱 → 서버):
+- 0x01: DOT_PATTERN - 점자 패턴 입력
+- 0x02: DOT_RELEASE - 점 릴리즈
+- 0x04: CLEAR - 초기화
+- 0x05: WORD_SEPARATOR - 단어 구분자 (공백)
+- 0x06: SENTENCE_SEPARATOR - 문장 구분자
+- 0x07: BRAILLE_SEPARATOR - 점자 구분자
+- 0x10: TEXT_MESSAGE - 텍스트 메시지
+- 0x20: SETTINGS - 설정
+- 0x30: IMAGE_DATA - 이미지 데이터 (필담 OCR용)
+
+수신 메시지 (서버 → 앱):
+- 0x03: PATTERN_COMPLETE - 패턴 완성
+- 0x81: STATUS_UPDATE - 상태 업데이트
+- 0x82: MESSAGE_RECEIVED - 메시지 수신 확인
+- 0x83: SETTINGS_UPDATED - 설정 업데이트 확인
+```
+
+**점자 점 데이터**: 6비트 비트마스크 (비트 0-5 = 점 1-6)
 
 #### WebSocket 프로토콜 (웹 클라이언트 ↔ WebSocket 서버, 포트 8889)
 ```json
@@ -324,13 +396,21 @@ Byte 1: 데이터 (점자 점 비트마스크 또는 기타 데이터)
   "pattern": [true, false, false, true, true, false],
   "binary": "100110",
   "character": "D",
-  "source": "esp32",
+  "source": "esp32" | "web" | "demo",
   "timestamp": 1234567890
 }
 
 // 구분자 메시지
 {
   "type": "word_separator" | "sentence_separator" | "braille_separator"
+}
+
+// 이미지 데이터 (필담 OCR용)
+{
+  "type": "image_data",
+  "image": "base64_encoded_image_data",
+  "width": 640,
+  "height": 480
 }
 ```
 
@@ -458,6 +538,8 @@ application/
 ├── DEVELOPMENT_INSTRUCTIONS.md          # 개발 가이드
 ├── BRAILLE_INPUT_IMPLEMENTATION.md      # 점자 입력 상세
 ├── BLE_GATT_ARCHITECTURE.md            # BLE 아키텍처
+├── SIMPLE_BRAILLE_DOT_PROTOCOL.md      # 간단한 점자 점 프로토콜
+├── WIFI_PROTOTYPE_PROTOCOL.md          # WiFi 프로토타입 프로토콜
 ├── PROJECT_IMPROVEMENT_PROPOSAL.md      # 개선 제안서
 └── README_KO.md                         # 한글 README
 
@@ -467,6 +549,10 @@ web_visualizer/
 
 wearable/
 └── README.md                            # 하드웨어 가이드
+
+루트 문서:
+├── ocr_plan.md                          # 필담 OCR 구현 계획
+└── plan.md                              # 프로젝트 구현 계획
 ```
 
 ---
