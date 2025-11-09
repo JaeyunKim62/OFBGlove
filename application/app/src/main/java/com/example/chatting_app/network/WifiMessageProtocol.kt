@@ -107,7 +107,7 @@ data class MessageHeader(
  */
 enum class MessageType(val value: Int) {
     // 송신 메시지 (앱 → ESP32)
-    DOT_TOUCH(0x01),          // 점 터치
+    DOT_PATTERN(0x01),        // 점자 패턴 입력 (하나씩) - 웹에서 수신 시 사용
     DOT_RELEASE(0x02),        // 점 릴리즈
     PATTERN_COMPLETE(0x03),   // 패턴 완성
     CLEAR(0x04),              // 초기화

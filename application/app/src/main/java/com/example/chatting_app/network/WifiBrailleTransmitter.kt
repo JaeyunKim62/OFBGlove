@@ -19,7 +19,7 @@ class WifiBrailleTransmitter(private val wifiClient: WifiClient) {
         }
         
         val data = byteArrayOf(dotIndex.toByte())
-        val packet = WifiMessageProtocol.serializeMessage(MessageType.DOT_TOUCH, data)
+        val packet = WifiMessageProtocol.serializeMessage(MessageType.DOT_PATTERN, data)
         wifiClient.send(packet)
         
         Log.d(TAG, "Sent dot touch: $dotIndex")

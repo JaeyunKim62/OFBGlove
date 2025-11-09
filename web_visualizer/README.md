@@ -40,6 +40,13 @@ npm run dev
 - **단어 커밋**: 현재 단어를 입력 문장에 추가하고 TTS로 읽기
 - **문장 전송**: 버퍼의 모든 패턴을 일괄 전송
 
+#### 필담 입력 시스템
+- **손글씨 캔버스**: 숫자/알파벳 손글씨 입력 인터페이스
+- **실시간 그리기**: 마우스/터치로 자유롭게 그리기
+- **이미지 전송**: 그린 이미지를 Android 앱으로 전송하여 OCR 처리
+- **자동 리사이즈**: 최적 크기로 이미지 조정
+- **OCR 연동**: Android 앱에서 인식된 텍스트를 점자로 변환하여 수신
+
 #### 재생 제어
 - **문장 재생**: 수신 문장을 점자별로 순차 재생
 - **다시듣기**: 현재 문장 및 전체 시퀀스 재생
@@ -137,6 +144,12 @@ npm run dev
 3. "단어 커밋" 버튼으로 현재 단어를 입력 문장에 추가
 4. "전송" 버튼으로 버퍼의 모든 패턴 전송
 
+#### 필담 입력하기
+1. 필담 입력 탭 또는 버튼 선택
+2. 캔버스에 마우스/터치로 숫자나 알파벳 그리기
+3. "전송" 버튼으로 이미지를 Android 앱에 전송
+4. Android 앱에서 OCR 처리 후 인식된 텍스트를 점자로 변환하여 수신
+
 #### 문장 재생하기
 1. 수신 문장이 있으면 "재생" 버튼 활성화
 2. 재생 버튼 클릭 시 점자별로 순차 재생
@@ -176,6 +189,8 @@ web_visualizer/
 │   │   ├── BrailleCell.css        # 점자 셀 스타일
 │   │   ├── BrailleInput.tsx       # 점자 입력 컴포넌트
 │   │   ├── BrailleInput.css       # 점자 입력 스타일
+│   │   ├── HandwritingCanvas.tsx   # 필담 입력 캔버스 (OCR용)
+│   │   ├── HandwritingCanvas.css   # 필담 캔버스 스타일
 │   │   ├── ConnectionInfo.tsx     # 연결 정보 컴포넌트
 │   │   ├── ConnectionInfo.css     # 연결 정보 스타일
 │   │   ├── ServerLog.tsx          # 서버 로그 컴포넌트
@@ -190,6 +205,7 @@ web_visualizer/
 │   │   └── websocket.ts           # WebSocket 타입 정의
 │   └── utils/
 │       ├── dataCollector.ts       # 데이터 수집 유틸리티
+│       ├── imageUtils.ts          # 이미지 처리 유틸리티 (리사이즈, 변환)
 │       └── networkUtils.ts        # 네트워크 유틸리티
 ├── public/
 │   ├── glove.png                  # 장갑 이미지 (배경용)
@@ -200,21 +216,167 @@ web_visualizer/
 
 ## 🔌 통신 프로토콜
 
-### TCP 프로토콜 (ESP32/Android 앱 → 서버)
+### 아키텍처 개요
+
+서버는 **TCP 서버**와 **WebSocket 서버**로 분리되어 있으며, 서로 다른 클라이언트 타입을 지원합니다:
+
+```
+ESP32/Android 앱          웹 브라우저
+    ↓                        ↓
+TCP 서버 (8888)      WebSocket 서버 (8889)
+    ↓ (바이너리)              ↓ (JSON)
+    └──────┬──────────────────┘
+           ↓
+    브리지 (프로토콜 변환)
+    - 바이너리 ↔ JSON
+    - 메모리 내 변환 (네트워크 오버헤드 없음)
+```
+
+### TCP와 WebSocket 분리 이유
+
+1. **서로 다른 클라이언트 타입**
+   - **TCP (8888)**: ESP32/Android 앱용 바이너리 프로토콜 (효율적)
+   - **WebSocket (8889)**: 웹 브라우저용 JSON 프로토콜 (웹 표준)
+
+2. **프로토콜 변환 브리지**
+   - TCP 서버가 받은 바이너리 데이터 → JSON 변환 → WebSocket 클라이언트에 브로드캐스트
+   - WebSocket 서버가 받은 JSON 데이터 → 바이너리 변환 → TCP 클라이언트에 전송
+   - 변환은 메모리 내에서만 발생 (네트워크 통신 없음)
+
+3. **각 클라이언트의 최적 프로토콜 사용**
+   - ESP32/Android: 바이너리 프로토콜로 효율적인 데이터 전송
+   - 웹 브라우저: JSON 프로토콜로 JavaScript 친화적 처리
+
+### TCP 프로토콜 (ESP32/Android 앱 ↔ 서버)
+
 - **포트**: 8888
-- **프로토콜**: 바이너리 프로토콜 (간단한 점자 점 프로토콜)
-- **메시지 구조**: 3바이트 (메시지 타입 + 점자 점 + 체크섬)
+- **프로토콜**: GATT 호환 바이너리 프로토콜
+- **메시지 구조**: `[헤더 4바이트][데이터 N바이트]`
+  - 헤더: 메시지 타입(1) + 데이터 길이(2, Little Endian) + 체크섬(1)
+
+**통신 구조:**
+- **Android 앱 → 서버**: `BRAILLE_SEQUENCE` (0x08)만 사용 (점자 패턴 일괄 전송)
+- **ESP32 → 서버**: `PATTERN_COMPLETE` (0x03) 또는 `DOT_PATTERN` (0x01) 사용 가능 (개별 패턴 전송)
+
+**송신 메시지 (클라이언트 → 서버)**
+
+#### Android 앱에서 사용하는 메시지
+
+**`0x08` - BRAILLE_SEQUENCE** ⭐
+- **용도**: 점자 시퀀스 전송 (Android 앱에서 점자 패턴을 전송하는 유일한 방식)
+- **데이터**: `[패턴 개수(1바이트)][패턴1(1바이트)][패턴2(1바이트)]...`
+- **설명**:
+  - 첫 바이트: 패턴 개수 (최대 255개)
+  - 이후 바이트들: 각 패턴 (6개 점을 1바이트로 압축)
+  - Bit 0: 점 1, Bit 1: 점 2, ..., Bit 5: 점 6
+
+#### ESP32에서 사용 가능한 메시지
+
+**`0x01` - DOT_PATTERN**
+- **용도**: 개별 점 터치 이벤트
+- **데이터**: `[dotIndex(1바이트)]` (0-5)
+- **설명**: 단일 점의 터치 이벤트 (ESP32에서 사용)
+
+**`0x02` - DOT_RELEASE**
+- **용도**: 점 릴리즈 이벤트
+- **데이터**: `[dotIndex(1바이트)]` (0-5)
+- **설명**: 단일 점의 릴리즈 이벤트 (ESP32에서 사용)
+
+**`0x03` - PATTERN_COMPLETE**
+- **용도**: 단일 패턴 완성
+- **데이터**: `[dotsByte(1바이트)]`
+- **설명**: 6개 점을 1바이트로 압축한 단일 패턴 (ESP32에서 사용)
+
+#### 공통 메시지
+
+**`0x04` - CLEAR**: 초기화
+**`0x05` - WORD_SEPARATOR**: 단어 구분자 (공백)
+**`0x06` - SENTENCE_SEPARATOR**: 문장 구분자
+**`0x07` - BRAILLE_SEPARATOR**: 점자 구분자
+**`0x10` - TEXT_MESSAGE**: 텍스트 메시지
+**`0x20` - SETTINGS**: 설정
+**`0x30` - IMAGE_DATA**: 이미지 데이터 (필담 OCR용, 웹 → 앱)
+
+**수신 메시지 (서버 → 클라이언트)**
+- `0x81`: STATUS_UPDATE - 상태 업데이트
+- `0x82`: MESSAGE_RECEIVED - 메시지 수신 확인
+- `0x83`: SETTINGS_UPDATED - 설정 업데이트 확인
 
 ### WebSocket 프로토콜 (웹 클라이언트 ↔ 서버)
+
 - **포트**: 8889
-- **프로토콜**: JSON 메시지
-- **메시지 타입**:
-  - `braille_pattern`: 점자 패턴 수신
-  - `word_separator`: 단어 구분자
-  - `sentence_separator`: 문장 구분자
-  - `braille_separator`: 점자 구분자
-  - `status`: 서버 상태 요청
-  - `clients`: 클라이언트 목록 요청
+- **프로토콜**: JSON 메시지 (WebSocket 표준)
+- **주요 메시지 타입**:
+
+**수신 (서버 → 클라이언트)**
+- `braille_pattern`: 점자 패턴 수신
+  ```json
+  {
+    "type": "braille_pattern",
+    "pattern": [true, false, false, true, true, false],
+    "binary": "100110",
+    "character": "D",
+    "source": "esp32" | "web" | "demo",
+    "timestamp": 1234567890
+  }
+  ```
+- `word_separator`, `sentence_separator`, `braille_separator`: 구분자 메시지
+- `server_log`: 서버 로그
+- `status`: 서버 상태 응답
+- `clients`: 클라이언트 목록 응답
+
+**송신 (클라이언트 → 서버)**
+- `dot_pattern`: 점자 패턴 전송
+  ```json
+  {
+    "type": "dot_pattern",
+    "dotsByte": 49  // 0x31 = 점 1,4,5 활성
+  }
+  ```
+- `image_data`: 이미지 데이터 전송 (필담 OCR용)
+- `get_status`: 서버 상태 요청
+- `get_clients`: 클라이언트 목록 요청
+
+### 통신 흐름 예시
+
+**Android 앱 → 웹 브라우저:**
+```
+Android 앱
+  ↓ [BRAILLE_SEQUENCE: 0x08 0x03 0x00 0x02 0x02 0x01 0x03]
+  // "AB" 시퀀스 (개수=2, A=0x01, B=0x03)
+TCP 서버 (파싱)
+  ↓ [메모리 내 변환 - 시퀀스를 개별 패턴으로 분해]
+  ↓ [JSON: {"type":"braille_pattern",...}]
+WebSocket 서버 (브로드캐스트)
+  ↓
+웹 브라우저 (실시간 시각화)
+```
+
+**ESP32 → 웹 브라우저:**
+```
+ESP32
+  ↓ [PATTERN_COMPLETE: 0x03 0x01 0x00 0x31 0x31]
+  // 단일 패턴 (점 1,4,5 활성)
+TCP 서버 (파싱)
+  ↓ [메모리 내 변환]
+  ↓ [JSON: {"type":"braille_pattern",...}]
+WebSocket 서버 (브로드캐스트)
+  ↓
+웹 브라우저 (실시간 시각화)
+```
+
+**웹 브라우저 → Android 앱/ESP32:**
+```
+웹 브라우저
+  ↓ [JSON: {"type":"dot_pattern","dotsByte":49}]
+WebSocket 서버 (파싱)
+  ↓ [메모리 내 변환]
+  ↓ [바이너리: 0x03 0x01 0x00 0x31 0x31]
+  // PATTERN_COMPLETE로 변환
+TCP 서버 (브로드캐스트)
+  ↓
+Android 앱 / ESP32
+```
 
 ## 🎨 UI 구성
 

@@ -1,275 +1,413 @@
-# Voice-Text Chat Simulator with Braille Support
+# 음성-텍스트 채팅 시뮬레이터 (점자 지원)
 
-A comprehensive Android chat application that simulates conversations between voice users and text users, featuring advanced speech recognition, text-to-speech, and braille input/output capabilities. Designed with accessibility in mind, this app supports multiple input methods including voice, text, and braille.
+음성 사용자와 텍스트 사용자 간의 대화를 시뮬레이션하는 포괄적인 Android 채팅 애플리케이션으로, 고급 음성 인식, 텍스트-음성 변환, 점자 입력/출력 기능을 제공합니다. 접근성을 고려하여 설계된 이 앱은 음성, 텍스트, 점자 등 다양한 입력 방법을 지원합니다.
 
-## 🌟 Key Features
+## 🌟 주요 기능
 
-### 🎤 Advanced Voice Processing
-- **Real-time Speech Recognition**: Convert speech to text using Android's SpeechRecognizer
-- **Advanced STT Processing**: Comprehensive status feedback and error handling
-- **Status Management**: Visual feedback for all speech recognition states
-- **Automatic Retry**: Smart retry logic for failed recognition attempts
+### 🎤 고급 음성 처리
+- **실시간 음성 인식**: Android의 SpeechRecognizer를 사용한 음성을 텍스트로 변환
+- **고급 STT 처리**: 포괄적인 상태 피드백 및 오류 처리
+- **상태 관리**: 모든 음성 인식 상태에 대한 시각적 피드백
+- **자동 재시도**: 인식 실패 시 스마트 재시도 로직
 
-### 📝 Multiple Input Methods
-- **Text Input**: Traditional keyboard input with send functionality
-- **Voice Input**: Tap-to-speak with real-time recognition
-- **Braille Input**: 6-dot braille grid for tactile input
-- **Input Mode Switching**: Seamless switching between input methods
+### 📝 다중 입력 방법
+- **텍스트 입력**: 전통적인 키보드 입력 및 전송 기능
+- **음성 입력**: 실시간 인식이 가능한 탭-투-스피크
+- **점자 입력**: 촉각 입력을 위한 6-dot 점자 그리드 (숨김)
+- **입력 모드 전환**: 입력 방법 간의 원활한 전환 (숨김)
 
-### 🔊 Text-to-Speech Integration
-- **Automatic TTS**: Text messages are automatically played back as speech
-- **Real-time Feedback**: Immediate audio feedback for braille input
-- **Language Support**: Configurable TTS language settings
+### 🔊 텍스트-음성 변환 통합
+- **자동 TTS**: 텍스트 메시지가 자동으로 음성으로 재생
+- **실시간 피드백**: 점자 입력에 대한 즉각적인 오디오 피드백
+- **언어 지원**: 설정 가능한 TTS 언어 설정
 
-### 🔤 Braille Support
-- **liblouis Integration**: Professional-grade braille translation using liblouis-java
-- **Bidirectional Conversion**: Text ↔ Braille conversion in both directions
-- **Multiple Braille Tables**: Support for various braille table formats
-- **Interactive Braille Input**: 6-dot braille grid for direct braille input
-- **Real-time Translation**: Instant braille translation and audio feedback
+### 🔤 점자 지원
+- **양방향 변환**: 텍스트 ↔ 점자 양방향 변환
+- **대화형 점자 입력**: 직접 점자 입력을 위한 6-dot 점자 그리드 (숨김)
+- **실시간 번역**: 즉각적인 점자 번역 및 오디오 피드백
+- **점자 전송 모듈**: WiFi 점자 패턴 전송 전용 모듈
 
-### 📶 WiFi Prototype Communication (NEW!)
-- **GATT-Compatible Protocol**: WiFi implementation using BLE GATT message structure
-- **Real-time Braille Transmission**: 2-byte binary protocol for instant dot transmission
-- **Text Message Support**: Compressed text and braille message transmission
-- **User Settings**: Speed, mode, and configuration transmission
-- **ESP32 Integration**: Complete ESP32 server implementation
-- **Prototype Testing**: Dedicated WiFi test interface for rapid development
+### 📶 WiFi 통신
+- **GATT 호환 프로토콜**: BLE GATT 메시지 구조를 사용한 WiFi 구현
+- **실시간 점자 전송**: 4바이트 헤더 + 데이터 바이너리 프로토콜
+- **메시지 타입**: DOT_PATTERN, PATTERN_COMPLETE, BRAILLE_SEQUENCE, WORD_SEPARATOR, SENTENCE_SEPARATOR, BRAILLE_SEPARATOR, TEXT_MESSAGE, SETTINGS, IMAGE_DATA
+- **텍스트 메시지 지원**: 압축된 텍스트 및 점자 메시지 전송
+- **사용자 설정**: 속도, 모드, 구성 전송
+- **이미지 수신**: 필담 이미지 수신 및 OCR 처리 지원
+- **통합 메시지 관리자**: WiFi 연결을 위한 중앙화된 통신 관리
 
-### 🎨 Modern UI/UX
-- **Jetpack Compose**: Built with the latest Android UI toolkit
-- **Material Design 3**: Modern, accessible design system
-- **Responsive Layout**: Optimized for various screen sizes
-- **Accessibility Features**: Enhanced accessibility for users with visual impairments
-- **Haptic Feedback**: Tactile feedback for braille input
+### 📷 OCR 지원
+- **ML Kit 텍스트 인식**: Google ML Kit를 사용한 필담 인식
+- **이미지 수신**: 웹 비주얼라이저로부터 필담 이미지 수신
+- **실시간 처리**: 이미지 처리 및 텍스트 변환
+- **다국어 지원**: 숫자, 알파벳, 일본어 문자
 
-## 🚀 How It Works
+### 🎨 현대적인 UI/UX
+- **Jetpack Compose**: 최신 Android UI 툴킷으로 구축
+- **Material Design 3**: 현대적이고 접근 가능한 디자인 시스템
+- **반응형 레이아웃**: 다양한 화면 크기에 최적화
+- **접근성 기능**: 시청각장애인을 위한 향상된 접근성
+- **햅틱 피드백**: 점자 입력을 위한 촉각 피드백
 
-### Voice User Mode
-1. Toggle to "Voice User" mode
-2. Tap the microphone button to start speech recognition
-3. Speak your message clearly
-4. Real-time status feedback shows recognition progress:
-   - **Starting**: Initializing speech recognition
-   - **Ready**: Ready to listen for speech
-   - **Listening**: Actively listening to your voice
-   - **Processing**: Converting speech to text
-   - **Success**: Speech successfully recognized
-   - **Error**: Recognition issues with helpful error messages
-5. Recognized text appears as a blue message bubble
-6. Braille translation is automatically generated and displayed
+## 🚀 작동 방식
 
-### Text User Mode
-1. Toggle to "Text User" mode
-2. Type your message in the text field
-3. Tap the send button
-4. Text appears as a gray message bubble
-5. Message is automatically played back using TTS
+### 음성 사용자 모드
+1. "음성 사용자" 모드로 전환
+2. 마이크 버튼을 탭하여 음성 인식 시작
+3. 메시지를 명확하게 말하기
+4. 인식된 텍스트가 파란색 메시지 버블로 표시
+5. 점자 번역이 자동으로 생성되어 표시
+6. 무선 통신을 통해 점자 시퀀스 송신
 
-### Braille Input Mode
-1. Toggle to "Braille Input" mode
-2. Use the 6-dot braille grid to input characters:
-   - Touch dots 1-6 to create braille patterns
-   - Visual feedback shows active dots
-   - Complete pattern by tapping "Complete" button
-3. Real-time character recognition and audio feedback
-4. Seamless integration with chat system
+**참고**: 실시간 상태 피드백(시작 중, 준비 완료, 듣는 중, 처리 중, 성공, 오류)은 ViewModel에 구현되어 있으나 현재 UI에 표시되지 않습니다.
 
-### WiFi Prototype Testing (NEW!)
-1. Tap "WiFi 프로토타입 테스트" button
-2. Enter ESP32 IP address and port (default: 8080)
-3. Tap "연결" to connect to ESP32 server
-4. Test real-time braille dot transmission:
-   - Tap numbered buttons (1-6) to send dot touch events
-   - Tap "패턴 완성" to send complete braille pattern
-   - Tap "초기화" to clear all dots
-5. Test text message transmission:
-   - Tap "텍스트 전송" to send sample message
-   - Tap "설정 전송" to send user settings
-6. Monitor real-time communication logs
+### 텍스트 사용자 모드 (숨김)
+1. "텍스트 사용자" 모드로 전환
+2. 텍스트 필드에 메시지 입력
+3. 전송 버튼 탭
+4. 텍스트가 회색 메시지 버블로 표시
+5. 메시지가 TTS를 사용하여 자동으로 재생
 
-## 🛠️ Technical Architecture
+### 점자 입력 모드 (숨김)
+1. "점자 입력" 모드로 전환
+2. 6-dot 점자 그리드를 사용하여 문자 입력:
+   - 점 1-6을 터치하여 점자 패턴 생성
+   - 활성 점에 대한 시각적 피드백 표시
+   - "완료" 버튼을 탭하여 패턴 완성
+3. 실시간 문자 인식 및 오디오 피드백
+4. 채팅 시스템과의 원활한 통합
 
-### Core Technologies
-- **Platform**: Android API 30+ (Android 11+)
-- **Language**: Kotlin 2.0.21
-- **UI Framework**: Jetpack Compose with Material Design 3
-- **Architecture**: MVVM with StateFlow and Coroutines
-- **Build System**: Gradle 8.10.1
+## 🛠️ 기술 아키텍처
 
-### Key Libraries
-- **liblouis-java**: 5.1.0 - Professional braille translation
-- **JNA**: 5.17.0 - Native library access for liblouis
-- **AndroidX Compose BOM**: 2024.09.00 - Latest Compose components
-- **Lifecycle**: 2.7.0 - ViewModel and state management
+### 핵심 기술
+- **플랫폼**: Android API 30+ (Android 11+)
+- **언어**: Kotlin 2.0.21
+- **UI 프레임워크**: Material Design 3와 함께하는 Jetpack Compose
+- **아키텍처**: StateFlow와 Coroutines를 사용한 MVVM
+- **빌드 시스템**: Gradle 8.10.1
 
-### Project Structure
+### 주요 라이브러리
+- **liblouis-java**: 5.1.0 - 전문급 점자 번역
+- **JNA**: 5.17.0 - liblouis를 위한 네이티브 라이브러리 접근
+- **AndroidX Compose BOM**: 2024.09.00 - 최신 Compose 컴포넌트
+- **Lifecycle**: 2.7.0 - ViewModel 및 상태 관리
+
+### 프로젝트 구조
 ```
 app/src/main/java/com/example/chatting_app/
-├── MainActivity.kt              # App entry point with permission handling
-├── ChatScreen.kt               # Main chat UI composable
-├── ChatViewModel.kt            # Business logic and state management
-├── ChatMessage.kt              # Message data class
-├── BrailleConverter.kt         # Braille conversion wrapper
-├── BrailleConverterJava.kt     # liblouis-java integration
-├── BrailleInputGrid.kt         # 6-dot braille input UI
-├── BrailleInputManager.kt      # Braille input logic
-├── BraillePatternConverter.kt  # Braille pattern recognition
-└── ui/theme/                   # Material Design 3 theming
+├── MainActivity.kt              # 권한 처리가 포함된 앱 진입점
+├── ChatScreen.kt               # 메인 채팅 UI 컴포저블
+├── ChatViewModel.kt            # 비즈니스 로직 및 상태 관리
+├── ChatMessage.kt              # 메시지 데이터 클래스
+├── BrailleConverter.kt         # 점자 변환 래퍼
+├── BrailleConverterJava.kt     # liblouis-java 통합
+├── BrailleInputGrid.kt         # 6-dot 점자 입력 UI
+├── BrailleInputManager.kt      # 점자 입력 로직
+├── BraillePatternConverter.kt  # 점자 패턴 인식
+├── network/
+│   ├── UnifiedMessageManager.kt # 중앙화된 WiFi 메시지 관리
+│   ├── WifiClient.kt            # WiFi 클라이언트 구현
+│   ├── WifiMessageProtocol.kt   # GATT 호환 프로토콜
+│   ├── WifiBrailleTransmitter.kt # 점자 패턴 전송기
+│   ├── WifiTextTransmitter.kt   # 텍스트 메시지 전송기
+│   └── WifiSettingsTransmitter.kt # 설정 전송기
+├── ocr/
+│   └── TextRecognizerManager.kt # ML Kit OCR 통합
+└── ui/theme/                   # Material Design 3 테마
 ```
 
-## 📱 Setup and Installation
+## 🔌 WiFi 통신 프로토콜
 
-### Prerequisites
-- Android Studio (latest version)
+### 프로토콜 개요
+
+앱은 **GATT 호환 바이너리 프로토콜**을 사용하여 WiFi를 통해 ESP32 또는 웹 비주얼라이저 서버와 통신합니다. 프로토콜은 BLE GATT 메시지 구조를 기반으로 하여, 향후 BLE 통신으로의 전환이 용이하도록 설계되었습니다.
+
+### 통신 구조
+
+```
+앱 (클라이언트) ←→ ESP32 (서버)
+앱 (클라이언트) ←→ 웹 비주얼라이저 (서버)
+```
+
+- **앱**: 클라이언트 역할 (ESP32 또는 웹 서버에 연결)
+- **ESP32/웹**: 서버 역할 (각각 독립적으로 앱과 통신)
+- ESP32와 웹은 서로 직접 통신하지 않음
+
+### 메시지 구조
+
+모든 메시지는 다음 구조를 따릅니다:
+
+```
+[헤더 4바이트][데이터 N바이트]
+```
+
+**헤더 구조 (Little Endian):**
+- **바이트 0**: 메시지 타입 (1바이트)
+- **바이트 1-2**: 데이터 길이 (2바이트, Little Endian)
+- **바이트 3**: 체크섬 (1바이트, XOR)
+
+**체크섬 계산:**
+- 데이터 바이트들을 XOR 연산하여 계산
+- 헤더의 메시지 타입, 데이터 길이, 데이터를 포함하여 검증
+
+### 송신 메시지 타입 (앱 → ESP32/웹)
+
+#### 점자 메시지
+
+**`0x08` - BRAILLE_SEQUENCE** ⭐
+- **용도**: 점자 시퀀스 전송 (앱에서 점자 패턴을 전송하는 유일한 방식)
+- **데이터**: `[패턴 개수(1바이트)][패턴1(1바이트)][패턴2(1바이트)]...`
+- **설명**:
+  - 첫 바이트: 패턴 개수 (최대 255개)
+  - 이후 바이트들: 각 패턴 (6개 점을 1바이트로 압축)
+    - Bit 0: 점 1, Bit 1: 점 2, ..., Bit 5: 점 6
+    - 예: `0x31` (00110001) = 점 1, 4, 5 활성
+  - 효율적인 대량 전송을 위한 일괄 전송 방식
+- **사용 예시**: 
+  - 음성 인식 결과를 점자 시퀀스로 변환하여 한 번에 전송
+  - 텍스트 메시지를 점자로 변환하여 시퀀스로 전송
+
+**참고**: 앱은 개별 점자 패턴을 전송하지 않습니다. 모든 점자 패턴은 `BRAILLE_SEQUENCE`로 일괄 전송됩니다.
+
+#### 기타 메시지 (참고용)
+
+다음 메시지 타입들은 프로토콜에 정의되어 있으나, 현재 앱에서는 사용하지 않습니다:
+
+**`0x01` - DOT_PATTERN**
+- **용도**: 개별 점 터치 이벤트
+- **데이터**: `[dotIndex(1바이트)]` (0-5)
+- **설명**: 단일 점의 터치 이벤트 (앱에서 미사용)
+
+**`0x02` - DOT_RELEASE**
+- **용도**: 점 릴리즈 이벤트
+- **데이터**: `[dotIndex(1바이트)]` (0-5)
+- **설명**: 단일 점의 릴리즈 이벤트 (앱에서 미사용)
+
+**`0x03` - PATTERN_COMPLETE**
+- **용도**: 단일 패턴 완성
+- **데이터**: `[dotsByte(1바이트)]`
+- **설명**: 6개 점을 1바이트로 압축한 단일 패턴 (앱에서 미사용)
+
+**`0x04` - CLEAR**
+- **용도**: 점자 상태 초기화
+- **데이터**: `[0x00]`
+- **설명**: 모든 점을 비활성화
+
+#### 구분자 메시지
+
+**`0x05` - WORD_SEPARATOR**
+- **용도**: 단어 구분자 (공백)
+- **데이터**: `[0x00]`
+- **설명**: 단어 간 공백 표시
+
+**`0x06` - SENTENCE_SEPARATOR**
+- **용도**: 문장 구분자
+- **데이터**: `[0x00]`
+- **설명**: 문장 종료 표시
+
+**`0x07` - BRAILLE_SEPARATOR**
+- **용도**: 점자 구분자 (개별 점자 모드)
+- **데이터**: `[0x00]`
+- **설명**: 개별 점자 모드에서 점자 간 구분
+
+#### 고급 메시지
+
+**`0x10` - TEXT_MESSAGE**
+- **용도**: 텍스트 메시지 전송
+- **데이터**: `[텍스트 길이(1바이트)][텍스트(N바이트)][점자 길이(1바이트)][점자(N바이트)]`
+- **설명**: 압축된 텍스트 및 점자 메시지
+
+**`0x20` - SETTINGS**
+- **용도**: 설정 전송
+- **데이터**: `[속도(1바이트)][모드(1바이트)][플래그(1바이트)]`
+- **설명**: 속도, 모드, 기타 설정
+
+**`0x30` - IMAGE_DATA**
+- **용도**: 이미지 데이터 수신 (필담 OCR용)
+- **데이터**: `[이미지 크기(4바이트, Little Endian)][이미지 데이터(N바이트)]`
+- **설명**: 웹 비주얼라이저로부터 받은 필담 이미지 (웹 → 앱)
+
+### 수신 메시지 타입 (ESP32/웹 → 앱)
+
+**`0x81` - STATUS_UPDATE**
+- **용도**: 상태 업데이트
+- **데이터**: 상태 정보
+- **설명**: ESP32/웹 서버의 상태 변경 알림
+
+**`0x82` - MESSAGE_RECEIVED**
+- **용도**: 메시지 수신 확인
+- **데이터**: 확인 정보
+- **설명**: 메시지 수신 확인 응답
+
+**`0x83` - SETTINGS_UPDATED**
+- **용도**: 설정 업데이트 확인
+- **데이터**: 설정 정보
+- **설명**: 설정 변경 확인 응답
+
+### 프로토콜 사용 예시
+
+#### 예시 1: 시퀀스 전송 (BRAILLE_SEQUENCE) - 단일 패턴
+```
+메시지: "A" (점 1 활성 = 0x01)
+헤더: [0x08, 0x02, 0x00, 0x09]  // 타입=0x08, 길이=2, 체크섬=0x09
+데이터: [0x01, 0x01]            // 개수=1, 패턴1=A
+전체: [0x08, 0x02, 0x00, 0x09, 0x01, 0x01]
+```
+
+#### 예시 2: 시퀀스 전송 (BRAILLE_SEQUENCE) - 여러 패턴
+```
+메시지: "AB" (A=0x01, B=0x03)
+헤더: [0x08, 0x03, 0x00, 0x02]  // 타입=0x08, 길이=3, 체크섬=0x02
+데이터: [0x02, 0x01, 0x03]      // 개수=2, 패턴1=A, 패턴2=B
+전체: [0x08, 0x03, 0x00, 0x02, 0x02, 0x01, 0x03]
+```
+
+#### 예시 3: 단어 구분자
+```
+헤더: [0x05, 0x01, 0x00, 0x00]  // 타입=0x05, 길이=1, 체크섬=0x00
+데이터: [0x00]
+전체: [0x05, 0x01, 0x00, 0x00, 0x00]
+```
+
+### 점자 전송 방식
+
+앱은 **`BRAILLE_SEQUENCE` (0x08)**를 사용하여 점자 패턴을 전송합니다:
+
+- **일괄 전송**: 여러 점자 패턴을 한 번에 전송
+- **효율적**: 대량의 점자 패턴을 효율적으로 전송
+- **사용 사례**:
+  - 음성 인식 결과를 점자 시퀀스로 변환하여 전송
+  - 텍스트 메시지를 점자로 변환하여 시퀀스로 전송
+  - 점자 입력 결과를 시퀀스로 전송
+
+**참고**: 앱은 개별 점자 패턴을 전송하지 않습니다. 모든 점자 패턴은 시퀀스로 일괄 전송됩니다.
+
+### 연결 대상
+
+앱은 다음 중 하나의 서버에 연결할 수 있습니다:
+
+1. **ESP32 서버** (포트 8888)
+   - 실제 하드웨어 장갑과 통신
+   - 점자 패턴을 진동 모터로 출력
+
+2. **웹 비주얼라이저 서버** (포트 8888)
+   - 웹 브라우저에서 점자 패턴 시각화
+   - 필담 이미지 수신 및 OCR 처리
+
+## 📱 설정 및 설치
+
+### 사전 요구사항
+- Android Studio (최신 버전)
 - Android SDK 35
-- Android device with API 30+ (Android 11+)
-- Microphone access
-- Internet connection for TTS
-- ESP32 development board (for WiFi prototype testing)
+- API 30+ (Android 11+) Android 기기
+- 마이크 접근 권한
+- TTS를 위한 인터넷 연결
 
-### Installation Steps
-1. Clone the repository
-2. Open in Android Studio
-3. Sync Gradle files
-4. Build and run
+### 설치 단계
+1. 저장소 클론
+2. Android Studio에서 열기
+3. Gradle 파일 동기화
+4. Android 기기에서 빌드 및 실행
+5. 프롬프트가 나타나면 필요한 권한 부여
 
-### ESP32 Setup (WiFi Prototype)
-1. Install Arduino IDE with ESP32 support
-2. Open `esp32_wifi_server.ino` in Arduino IDE
-3. Update WiFi credentials in the code:
-   ```cpp
-   const char* ssid = "YOUR_WIFI_SSID";
-   const char* password = "YOUR_WIFI_PASSWORD";
-   ```
-4. Upload the code to your ESP32
-5. Note the IP address displayed in Serial Monitor
-6. Use this IP address in the Android app's WiFi test interface on an Android device
-5. Grant necessary permissions when prompted
+### 필요한 권한
+- `RECORD_AUDIO`: 음성 인식 기능
+- `INTERNET`: WiFi 통신
+- `ACCESS_NETWORK_STATE`: 네트워크 상태 확인
+- `BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN`: BLE 통신 (선택사항)
+- `VIBRATE`: 햅틱 피드백
 
-### Required Permissions
-- `RECORD_AUDIO`: For speech recognition functionality
-- `INTERNET`: For TTS engine access
-- `WRITE_EXTERNAL_STORAGE`: For braille table files
-- `READ_EXTERNAL_STORAGE`: For braille table files
+## 🎯 현재 구현 상태
 
-## 🎯 Current Implementation Status
+### ✅ 완료된 기능
+- [x] 상태 관리가 포함된 고급 음성 인식
+- [x] 텍스트-음성 변환 통합
+- [x] liblouis-java 점자 번역
+- [x] 6-dot 점자 입력 그리드
+- [x] 실시간 점자 패턴 인식
+- [x] 오디오 피드백이 포함된 대화형 점자 입력
+- [x] GATT 호환 프로토콜을 사용한 WiFi 통신
+- [x] 통합 메시지 관리 시스템
+- [x] 이미지 수신 및 OCR 처리
+- [x] 현대적인 Material Design 3 UI
+- [x] StateFlow를 사용한 MVVM 아키텍처
+- [x] 포괄적인 오류 처리
+- [x] 런타임 권한 관리
 
-### ✅ Completed Features
-- [x] Advanced speech recognition with status management
-- [x] Text-to-speech integration
-- [x] liblouis-java braille translation
-- [x] 6-dot braille input grid
-- [x] Real-time braille pattern recognition
-- [x] Interactive braille input with audio feedback
-- [x] Modern Material Design 3 UI
-- [x] MVVM architecture with StateFlow
-- [x] Comprehensive error handling
-- [x] Runtime permission management
+### 🔄 진행 중
 
-### 🔄 In Progress
-- [ ] Braille table optimization
-- [ ] Enhanced accessibility features
-- [ ] Performance optimizations
+### 📋 계획된 기능
+- [ ] 향상된 OCR 정확도 개선
+- [ ] BLE 통신 통합
+- [ ] 점자 학습용 프로세스
+- [ ] liblouis library 통합으로 점자 번역
+- [ ] 테스트 예제 및 코드
+- [ ] 채팅 기록 내보내기/가져오기
 
-### 📋 Planned Features
-- [ ] Message persistence with Room Database
-- [ ] Multiple language support
-- [ ] Voice message playback
-- [ ] Advanced braille table management
-- [ ] Dark mode support
-- [ ] Export/import chat history
+## 🧪 테스트
 
-## 🧪 Testing
+### 단위 테스트
+- ViewModel 비즈니스 로직 테스트
+- 점자 변환 테스트
+- 패턴 인식 테스트
 
-### Unit Tests
-- ViewModel business logic testing
-- Braille conversion testing
-- Pattern recognition testing
+### UI 테스트
+- Compose 컴포넌트 테스트
+- 점자 입력 상호작용 테스트
+- 접근성 테스트
 
-### UI Tests
-- Compose component testing
-- Braille input interaction testing
-- Accessibility testing
+### 통합 테스트
+- End-to-end 채팅 플로우 테스트
+- 음성 인식 테스트
+- TTS 기능 테스트
 
-### Integration Tests
-- End-to-end chat flow testing
-- Voice recognition testing
-- TTS functionality testing
+## 🔧 개발
 
-## 🐍 Python Server Testing (NEW!)
-
-### Quick Start
+### 프로젝트 빌드
 ```bash
-# Windows (PowerShell)
-.\run_python_server.ps1
-
-# Windows (Command Prompt)
-run_python_server.bat
-
-# Linux/Mac
-python3 python_wifi_server.py
-```
-
-### Python Server Features
-- **Arduino 호환**: ESP32 서버와 완전히 동일한 프로토콜
-- **실시간 로깅**: 모든 메시지와 상태 변화를 터미널에 출력
-- **점자 패턴 표시**: 현재 점자 상태를 실시간으로 확인
-- **체크섬 검증**: 데이터 무결성 보장
-- **멀티 클라이언트**: 여러 앱 연결 지원
-
-### 테스트 시나리오
-1. **Python 서버 실행**: `python python_wifi_server.py`
-2. **앱에서 WiFi 테스트**: MainActivity → "WiFi 테스트" 버튼
-3. **터미널에서 확인**: 점자 터치, 텍스트, 설정 변경 로그 확인
-
-## 🔧 Development
-
-### Building the Project
-```bash
-# Debug build
+# 디버그 빌드
 ./gradlew assembleDebug
 
-# Release build
+# 릴리즈 빌드
 ./gradlew assembleRelease
 
-# Run tests
+# 테스트 실행
 ./gradlew test
 ```
 
-### Code Style
-- Follow Kotlin coding conventions
-- Apply Compose guidelines
-- Use Material Design 3 components
-- Maintain MVVM architecture principles
+### 코드 스타일
+- Kotlin 코딩 규칙 준수
+- Compose 가이드라인 적용
+- Material Design 3 컴포넌트 사용
+- MVVM 아키텍처 원칙 유지
 
-## 📚 Documentation
+## 📚 문서
 
-- [Development Instructions](DEVELOPMENT_INSTRUCTIONS.md) - Comprehensive development guide
-- [Braille Input Implementation](BRAILLE_INPUT_IMPLEMENTATION.md) - Detailed braille feature documentation
+- [개발 지침서](DEVELOPMENT_INSTRUCTIONS.md) - 포괄적인 개발 가이드
+- [점자 입력 구현](BRAILLE_INPUT_IMPLEMENTATION.md) - 상세한 점자 기능 문서
 
-## 🤝 Contributing
+## 🤝 기여하기
 
-1. Fork the repository
-2. Create a feature branch
-3. Follow the coding standards
-4. Add tests for new features
-5. Submit a pull request
+1. 저장소 포크
+2. 기능 브랜치 생성
+3. 코딩 표준 준수
+4. 새 기능에 대한 테스트 추가
+5. 풀 리퀘스트 제출
 
-## 📄 License
+## 📄 라이선스
 
-This project uses the following open-source libraries:
+이 프로젝트는 다음 오픈소스 라이브러리를 사용합니다:
 - **liblouis**: LGPL 2.1
 - **JNA**: Apache 2.0
 - **AndroidX**: Apache 2.0
 
-## 🆘 Support
+## 🆘 지원
 
-For issues and questions:
-1. Check the documentation files
-2. Review the development instructions
-3. Open an issue on GitHub
+문제 및 질문이 있는 경우:
+1. 문서 파일 확인
+2. 개발 지침서 검토
+3. GitHub에서 이슈 열기
 
 ---
 
-**Note**: This app is designed with accessibility in mind and supports multiple input methods to accommodate users with different needs and preferences.
+**참고**: 이 앱은 접근성을 고려하여 설계되었으며, 다양한 요구사항과 선호도를 가진 사용자를 수용하기 위해 여러 입력 방법을 지원합니다.
