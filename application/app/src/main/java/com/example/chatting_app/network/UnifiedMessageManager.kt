@@ -167,6 +167,19 @@ class UnifiedMessageManager(private val context: Context) {
     }
     
     /**
+     * 점자 시퀀스 전송
+     */
+    fun sendBrailleSequence(patterns: List<Byte>) {
+        when (currentConnectionType) {
+            ConnectionType.WIFI -> wifiBrailleTransmitter.sendBrailleSequence(patterns)
+            ConnectionType.BLE -> {
+                // bleManager.sendBrailleSequence(patterns)
+                Log.d(TAG, "BLE braille sequence not implemented yet")
+            }
+        }
+    }
+    
+    /**
      * 텍스트 메시지 전송
      */
     fun sendTextMessage(text: String, braille: String) {

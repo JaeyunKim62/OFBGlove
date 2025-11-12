@@ -34,7 +34,7 @@ const int BUTTON_ENTER = 33;     // Sentence separator (newline)
 
 // ==================== Message Type Definitions ====================
 // App -> ESP
-#define MSG_WORD_SEQUENCE       0x03
+#define MSG_WORD_SEQUENCE       0x08  // BRAILLE_SEQUENCE
 #define MSG_CLEAR               0x04
 #define MSG_WORD_SEPARATOR      0x05
 #define MSG_SENTENCE_SEPARATOR  0x06
@@ -210,16 +210,31 @@ void handleReceivedMessage(uint8_t messageType, uint8_t* data, size_t dataLength
 }
 
 void handleWordSequence(uint8_t* data, size_t dataLength) {
-    Serial.printf("[RX] WORD_SEQUENCE: %d bytes\n", dataLength);
+    if (dataLength < 1) {
+        Serial.println("[ERROR] WORD_SEQUENCE: Invalid data length");
+        return;
+    }
     
-    // Output each braille pattern sequentially
-    for (size_t i = 0; i < dataLength; i++) {
-        uint8_t dotsByte = data[i];
+    // 첫 바이트는 패턴 개수
+    uint8_t patternCount = data[0];
+    
+    // 데이터 검증: 패턴 개수 + 패턴들 = dataLength
+    if (dataLength != (1 + patternCount)) {
+        Serial.printf("[ERROR] WORD_SEQUENCE: Mismatch - count=%d, length=%d\n", 
+                      patternCount, dataLength);
+        return;
+    }
+    
+    Serial.printf("[RX] BRAILLE_SEQUENCE: %d patterns\n", patternCount);
+    
+    // 패턴 개수 이후부터 각 패턴 처리
+    for (size_t i = 0; i < patternCount; i++) {
+        uint8_t dotsByte = data[1 + i];  // 첫 바이트는 개수이므로 +1
         setBraillePattern(dotsByte);
         updateBrailleDisplay();
         
         // Optional delay between braille patterns
-        if (i < dataLength - 1) {
+        if (i < patternCount - 1) {
             delay(100); // 100ms delay
         }
     }

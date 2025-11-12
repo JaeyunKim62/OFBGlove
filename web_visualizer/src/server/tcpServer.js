@@ -63,6 +63,7 @@ class TCPBrailleServer extends EventEmitter {
       0x05: "단어 구분자",
       0x06: "문장 구분자",
       0x07: "점자 구분자",
+      0x08: "점자 시퀀스",
       0x10: "텍스트 메시지",
       0x20: "설정",
       0x81: "상태 업데이트",
@@ -154,6 +155,68 @@ class TCPBrailleServer extends EventEmitter {
           this.broadcastLog('info', brailleSepMessage, { action: 'braille_separator' });
           this.broadcastToClients({
             type: "braille_separator",
+            timestamp: Date.now()
+          });
+          break;
+
+        case 0x08: // BRAILLE_SEQUENCE
+          if (data.length < 1) {
+            const errorMessage = "BRAILLE_SEQUENCE: 데이터 길이 부족";
+            console.error(`❌ ${errorMessage}`);
+            this.broadcastLog('error', errorMessage, { action: 'braille_sequence_error' });
+            break;
+          }
+          
+          // 첫 바이트는 패턴 개수
+          const patternCount = data[0];
+          
+          // 데이터 검증: 패턴 개수 + 패턴들 = data.length
+          if (data.length !== (1 + patternCount)) {
+            const errorMessage = `BRAILLE_SEQUENCE: 데이터 불일치 - 개수=${patternCount}, 길이=${data.length}`;
+            console.error(`❌ ${errorMessage}`);
+            this.broadcastLog('error', errorMessage, { 
+              patternCount, 
+              dataLength: data.length,
+              action: 'braille_sequence_error' 
+            });
+            break;
+          }
+          
+          const sequenceMessage = `점자 시퀀스 수신: ${patternCount}개 패턴`;
+          console.log(`📝 ${sequenceMessage}`);
+          
+          // 각 패턴을 순차적으로 처리
+          const patterns = [];
+          for (let i = 0; i < patternCount; i++) {
+            const byteValue = data[1 + i];  // 첫 바이트는 개수이므로 +1
+            
+            // 바이트를 6개 점으로 변환
+            const dots = [];
+            for (let j = 0; j < 6; j++) {
+              dots[j] = (byteValue & (1 << j)) !== 0;
+            }
+            
+            patterns.push({
+              dots: dots,
+              byte: byteValue,
+              timestamp: Date.now()
+            });
+            
+            // 각 패턴을 브로드캐스트
+            this.brailleDots = dots;
+            this.broadcastBrailleUpdate(false);
+          }
+          
+          this.broadcastLog('success', sequenceMessage, { 
+            patternCount, 
+            patterns: patterns.map(p => p.byte),
+            action: 'braille_sequence' 
+          });
+          
+          this.broadcastToClients({
+            type: "braille_sequence",
+            patternCount: patternCount,
+            patterns: patterns,
             timestamp: Date.now()
           });
           break;

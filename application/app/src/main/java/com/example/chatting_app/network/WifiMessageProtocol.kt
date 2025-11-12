@@ -114,6 +114,7 @@ enum class MessageType(val value: Int) {
     WORD_SEPARATOR(0x05),     // 단어 구분자 (공백)
     SENTENCE_SEPARATOR(0x06), // 문장 구분자
     BRAILLE_SEPARATOR(0x07),  // 점자 구분자 (개별 점자 모드)
+    BRAILLE_SEQUENCE(0x08),   // 점자 시퀀스 전송 (앱 → ESP32/웹)
     TEXT_MESSAGE(0x10),       // 텍스트 메시지
     SETTINGS(0x20),           // 설정
     

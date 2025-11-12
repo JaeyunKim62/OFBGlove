@@ -1068,30 +1068,55 @@ class ChatViewModel : ViewModel() {
     
     /**
      * 일반 패턴 모드로 전송
+     * 패턴들을 수집하여 BRAILLE_SEQUENCE (0x08)로 일괄 전송
      */
     private suspend fun sendBraillePatternsNormal(text: String, patterns: List<List<Boolean>>) {
         var patternIndex = 0
+        val currentSequence = mutableListOf<Byte>()
         
         for (char in text) {
             if (patternIndex < patterns.size) {
                 val pattern = patterns[patternIndex]
                 
                 if (char == ' ') {
-                    // 공백 문자인 경우: 구분자만 전송하고 점자 패턴은 건너뜀
+                    // 공백 문자인 경우: 현재까지 수집된 패턴들을 전송하고 구분자 전송
+                    if (currentSequence.isNotEmpty()) {
+                        messageManager?.sendBrailleSequence(currentSequence)
+                        currentSequence.clear()
+                        kotlinx.coroutines.delay(50) // 시퀀스 전송 후 간격
+                    }
                     messageManager?.sendWordSeparator()
                     kotlinx.coroutines.delay(50) // 구분자 간격
                 } else {
-                    // 일반 문자인 경우: 점자 패턴 전송
-                    sendBraillePatternToServer(pattern, patternIndex, patterns.size)
-                    kotlinx.coroutines.delay(100) // 100ms 간격
+                    // 일반 문자인 경우: 패턴을 시퀀스에 추가
+                    val dotsByte = packBrailleDots(pattern)
+                    currentSequence.add(dotsByte)
                 }
                 
                 patternIndex++
             }
         }
         
+        // 남은 패턴들을 전송
+        if (currentSequence.isNotEmpty()) {
+            messageManager?.sendBrailleSequence(currentSequence)
+        }
+        
         // 문장 끝에 문장 구분자 전송
         messageManager?.sendSentenceSeparator()
+    }
+    
+    /**
+     * 6개 점을 1바이트로 압축 (WifiBrailleTransmitter의 packBrailleDots와 동일한 로직)
+     */
+    private fun packBrailleDots(dots: List<Boolean>): Byte {
+        var result: Int = 0
+        dots.forEachIndexed { index, isActive ->
+            if (isActive) {
+                result = result or (1 shl index)
+            }
+        }
+        return result.toByte()
     }
     
     /**

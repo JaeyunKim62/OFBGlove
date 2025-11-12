@@ -103,9 +103,40 @@ class WifiBrailleTransmitter(private val wifiClient: WifiClient) {
     }
     
     /**
+     * 점자 시퀀스 전송 (BRAILLE_SEQUENCE 0x08)
+     * 여러 점자 패턴을 한 번에 전송
+     * 
+     * @param patterns 점자 패턴 리스트 (각 패턴은 6개 점을 1바이트로 압축된 Byte)
+     */
+    fun sendBrailleSequence(patterns: List<Byte>) {
+        if (patterns.isEmpty()) {
+            Log.w(TAG, "Empty braille sequence")
+            return
+        }
+        
+        if (patterns.size > 255) {
+            Log.w(TAG, "Braille sequence too long: ${patterns.size} (max 255)")
+            return
+        }
+        
+        // 데이터 구조: [패턴 개수(1)][패턴1(1)][패턴2(1)]...[패턴N(1)]
+        val data = ByteArray(1 + patterns.size)
+        data[0] = patterns.size.toByte()  // 패턴 개수
+        
+        for (i in patterns.indices) {
+            data[1 + i] = patterns[i]  // 각 패턴
+        }
+        
+        val packet = WifiMessageProtocol.serializeMessage(MessageType.BRAILLE_SEQUENCE, data)
+        wifiClient.send(packet)
+        
+        Log.d(TAG, "Sent braille sequence: ${patterns.size} patterns")
+    }
+    
+    /**
      * 6개 점을 1바이트로 압축
      */
-    private fun packBrailleDots(dots: List<Boolean>): Byte {
+    fun packBrailleDots(dots: List<Boolean>): Byte {
         var result: Int = 0
         dots.forEachIndexed { index, isActive ->
             if (isActive) {
