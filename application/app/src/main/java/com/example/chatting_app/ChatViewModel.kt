@@ -1075,26 +1075,26 @@ class ChatViewModel : ViewModel() {
         val currentSequence = mutableListOf<Byte>()
         
         for (char in text) {
-            if (patternIndex < patterns.size) {
-                val pattern = patterns[patternIndex]
-                
-                if (char == ' ') {
-                    // 공백 문자인 경우: 현재까지 수집된 패턴들을 전송하고 구분자 전송
-                    if (currentSequence.isNotEmpty()) {
-                        messageManager?.sendBrailleSequence(currentSequence)
-                        currentSequence.clear()
-                        kotlinx.coroutines.delay(50) // 시퀀스 전송 후 간격
-                    }
-                    messageManager?.sendWordSeparator()
-                    kotlinx.coroutines.delay(50) // 구분자 간격
-                } else {
-                    // 일반 문자인 경우: 패턴을 시퀀스에 추가
+            if (char == ' ') {
+                // 공백: 패턴 없음, 구분자만 전송
+                if (currentSequence.isNotEmpty()) {
+                    messageManager?.sendBrailleSequence(currentSequence)
+                    currentSequence.clear()
+                    kotlinx.coroutines.delay(50)
+                }
+                messageManager?.sendWordSeparator()
+                kotlinx.coroutines.delay(50)
+                // patternIndex는 증가시키지 않음 (공백은 패턴이 없으므로)
+            } else {
+                // 일반 문자: 패턴이 있음
+                if (patternIndex < patterns.size) {
+                    val pattern = patterns[patternIndex]
                     val dotsByte = packBrailleDots(pattern)
                     currentSequence.add(dotsByte)
+                    patternIndex++  // 일반 문자일 때만 증가
                 }
-                
-                patternIndex++
             }
+                
         }
         
         // 남은 패턴들을 전송

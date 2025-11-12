@@ -822,13 +822,13 @@ function App() {
       const lastPattern = lastPatternRef.current;
       
       // 마지막 패턴과 정확히 동일한 패턴이면 중복으로 판단
-      if (lastPattern && 
-          lastPattern.binary === pattern.binary && 
-          lastPattern.character === pattern.character &&
-          lastPattern.source === pattern.source) {
-        console.log('⚠️ 중복 패턴 감지 및 무시 (마지막 패턴과 동일):', pattern.character, pattern.binary);
-        return; // 중복이면 즉시 반환
-      }
+      // if (lastPattern && 
+      //     lastPattern.binary === pattern.binary && 
+      //     lastPattern.character === pattern.character &&
+      //     lastPattern.source === pattern.source) {
+      //   console.log('⚠️ 중복 패턴 감지 및 무시 (마지막 패턴과 동일):', pattern.character, pattern.binary);
+      //   return; // 중복이면 즉시 반환
+      // }
       
       // 중복이 아니면 ref 업데이트
       lastPatternRef.current = {
