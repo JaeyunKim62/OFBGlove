@@ -83,6 +83,42 @@ object LearningExamples {
             text = "ㅂ",
             category = "버튼",
             description = "6번 버튼"
+        ),
+        LearningExample(
+            id = "dot1",
+            text = "Dot 1",
+            category = "버튼",
+            description = "1번 점 테스트"
+        ),
+        LearningExample(
+            id = "dot2",
+            text = "Dot 2",
+            category = "버튼",
+            description = "2번 점 테스트"
+        ),
+        LearningExample(
+            id = "dot3",
+            text = "Dot 3",
+            category = "버튼",
+            description = "3번 점 테스트"
+        ),
+        LearningExample(
+            id = "dot4",
+            text = "Dot 4",
+            category = "버튼",
+            description = "4번 점 테스트"
+        ),
+        LearningExample(
+            id = "dot5",
+            text = "Dot 5",
+            category = "버튼",
+            description = "5번 점 테스트"
+        ),
+        LearningExample(
+            id = "dot6",
+            text = "Dot 6",
+            category = "버튼",
+            description = "6번 점 테스트"
         )
     )
 }

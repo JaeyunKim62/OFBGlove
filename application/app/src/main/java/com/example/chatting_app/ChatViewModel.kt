@@ -1030,6 +1030,39 @@ class ChatViewModel : ViewModel() {
             }
         }
     }
+
+    // ChatViewModel.kt에 추가
+    fun sendTestDot(dotNumber: Int) {
+        if (_isWifiConnected.value) {
+            viewModelScope.launch {
+                try {
+                    val brailleResult = withContext(Dispatchers.IO) {
+                        brailleConverter?.testSingleDot(dotNumber)
+                            ?: BraillePatternResult(
+                                originalText = "Dot $dotNumber",
+                                brailleText = "",
+                                braillePatterns = emptyList(),
+                                isSuccess = false,
+                                errorMessage = "Braille converter not initialized"
+                            )
+                    }
+                    
+                    if (brailleResult.isSuccess) {
+                        // 텍스트 변환 없이 점자 패턴만 전송
+                        sendBraillePatternsWithSeparators(
+                            "Dot $dotNumber", 
+                            brailleResult.braillePatterns
+                        )
+                        
+                        // UI 업데이트
+                        brailleInputManager?.setVoiceBraillePatternsFromResult(brailleResult.braillePatterns)
+                    }
+                } catch (e: Exception) {
+                    Log.e("ChatViewModel", "점 테스트 전송 오류: ${e.message}", e)
+                }
+            }
+        }
+    }
     
     /**
      * 음성 점자 패턴을 서버로 전송 (기존 convertToBrailleWithPatterns 활용)

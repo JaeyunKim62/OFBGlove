@@ -53,9 +53,14 @@ fun LearningScreen(
                 LearningExampleCard(
                     example = example,
                     onClick = {
-                        // 기존 메서드 재사용 (STT 없이)
-                        viewModel.addSightedVoiceMessage(example.text)
-                        viewModel.sendVoiceToWifi(example.text)
+                        if (example.id.startsWith("dot")) {
+                            val dotNumber = example.id.replace("dot", "").toIntOrNull()
+                            dotNumber?.let { viewModel.sendTestDot(it) }
+                        } else {
+                            // 기존 로직
+                            viewModel.addSightedVoiceMessage(example.text)
+                            viewModel.sendVoiceToWifi(example.text)
+                        }
                         Toast.makeText(
                             context,
                             "전송됨: ${example.text}",

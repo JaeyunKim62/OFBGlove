@@ -226,6 +226,35 @@ class BrailleConverter(private val context: Context) {
         
         return brailleMap[character]
     }
+
+    fun testSingleDot(dotNumber: Int): BraillePatternResult {
+        require(dotNumber in 1..6) { "점 번호는 1-6 사이여야 합니다" }
+        
+        val dots = BooleanArray(6) { false }
+        dots[dotNumber - 1] = true
+        
+        return BraillePatternResult(
+            originalText = "Dot $dotNumber",
+            brailleText = "",
+            braillePatterns = listOf(dots.toList()),
+            isSuccess = true
+        )
+    }
+
+    fun testMultipleDots(vararg dotNumbers: Int): BraillePatternResult {
+        val dots = BooleanArray(6) { false }
+        dotNumbers.forEach { dotNum ->
+            require(dotNum in 1..6) { "점 번호는 1-6 사이여야 합니다" }
+            dots[dotNum - 1] = true
+        }
+        
+        return BraillePatternResult(
+            originalText = "Dots ${dotNumbers.joinToString(",")}",
+            brailleText = "",
+            braillePatterns = listOf(dots.toList()),
+            isSuccess = true
+        )
+    }
     
     /**
      * 엔진 정보 가져오기
