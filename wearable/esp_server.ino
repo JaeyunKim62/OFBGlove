@@ -14,15 +14,15 @@
 #endif
 
 constexpr uint8_t BRAILLE_DOT_COUNT = 6;
-constexpr uint8_t BRAILLE_DOT_ADDRESSES[BRAILLE_DOT_COUNT] = {0x02, 0x04, 0x06, 0x08, 0x0A, 0x0C};
+constexpr uint8_t BRAILLE_DOT_ADDRESSES[BRAILLE_DOT_COUNT] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
 
 constexpr uint8_t MOTOR_CMD_PLAY_PATTERN = 0x01;
 constexpr uint8_t MOTOR_CMD_STOP         = 0x02;
 constexpr uint8_t MOTOR_FRAME_SIZE       = 10;
 constexpr uint8_t MOTOR_MAX_PATTERN_LEN  = 8;
-constexpr uint8_t DEFAULT_WAVEFORM_ID    = 0x01;
+constexpr uint8_t DEFAULT_WAVEFORM_ID    = 47;
 constexpr uint8_t DEFAULT_PATTERN_LEN    = 1;
-constexpr uint16_t BRAILLE_PATTERN_HOLD_MS = 180;
+constexpr uint16_t BRAILLE_PATTERN_HOLD_MS = 1000;
 
 const char* apSsid     = "OFBG_AP";
 const char* apPassword = "12345678";       // 8자 이상
