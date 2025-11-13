@@ -1040,9 +1040,8 @@ class ChatViewModel : ViewModel() {
                     // 각 점자 패턴을 개별적으로 서버로 전송 (구분자 포함)
                     viewModelScope.launch {
                         sendBraillePatternsWithSeparators(text, patterns)
+                        Log.d("ChatViewModel", "음성 점자 패턴 서버 전송 완료")
                     }
-                    
-                    Log.d("ChatViewModel", "음성 점자 패턴 서버 전송 완료")
                 } else {
                     Log.w("ChatViewModel", "음성 점자 패턴 변환 실패")
                 }

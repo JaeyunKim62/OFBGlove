@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.Socket
+import java.util.concurrent.LinkedBlockingQueue
 
 /**
  * WiFi 클라이언트 - GATT 호환 프로토콜 사용
@@ -22,6 +23,11 @@ class WifiClient(private val context: Context) {
     private var outputStream: OutputStream? = null
     private var inputStream: InputStream? = null
     private var isReceiving = false
+    
+    // 전송 큐 및 전송 스레드 제어
+    private val sendQueue = LinkedBlockingQueue<ByteArray>()
+    private var sendThread: Thread? = null
+    private var isSending = false
     
     // 연결 상태
     private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
@@ -66,6 +72,9 @@ class WifiClient(private val context: Context) {
                 _connectionState.value = ConnectionState.CONNECTED
                 Log.d(TAG, "Connected successfully to $ipAddress:$port")
                 
+                // 전송 스레드 시작
+                startSendingThread()
+                
                 // 수신 스레드 시작
                 startReceivingThread()
                 
@@ -85,6 +94,12 @@ class WifiClient(private val context: Context) {
         Thread {
             try {
                 isReceiving = false
+                isSending = false
+                
+                // 전송 스레드 종료
+                sendThread?.interrupt()
+                sendQueue.clear()
+                
                 socket?.close()
                 outputStream?.close()
                 inputStream?.close()
@@ -97,20 +112,54 @@ class WifiClient(private val context: Context) {
     }
     
     /**
-     * 데이터 전송
+     * 전송 스레드 시작
+     */
+    private fun startSendingThread() {
+        if (isSending) return
+        
+        isSending = true
+        sendThread = Thread {
+            Log.d(TAG, "Send thread started")
+            while (isSending && socket?.isConnected == true) {
+                try {
+                    // 큐에서 데이터 가져오기 (블로킹)
+                    val data = sendQueue.take()
+                    
+                    // 데이터 전송
+                    outputStream?.write(data)
+                    outputStream?.flush()
+                    Log.d(TAG, "Sent ${data.size} bytes")
+                    
+                } catch (e: InterruptedException) {
+                    Log.d(TAG, "Send thread interrupted")
+                    break
+                } catch (e: Exception) {
+                    Log.e(TAG, "Send error: ${e.message}", e)
+                    _connectionState.value = ConnectionState.ERROR
+                    break
+                }
+            }
+            Log.d(TAG, "Send thread stopped")
+            isSending = false
+        }
+        sendThread?.start()
+    }
+    
+    /**
+     * 데이터 전송 (큐에 추가)
      */
     fun send(data: ByteArray) {
-        // 백그라운드 스레드에서 데이터 전송
-        Thread {
-            try {
-                outputStream?.write(data)
-                outputStream?.flush()
-                Log.d(TAG, "Sent ${data.size} bytes")
-            } catch (e: Exception) {
-                Log.e(TAG, "Send error: ${e.message}")
-                _connectionState.value = ConnectionState.ERROR
-            }
-        }.start()
+        if (!isSending || socket?.isConnected != true) {
+            Log.w(TAG, "Cannot send: not connected or sending thread not started")
+            return
+        }
+        
+        try {
+            sendQueue.put(data) // 큐에 데이터 추가 (블로킹되지 않음)
+            Log.d(TAG, "Queued ${data.size} bytes for sending")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to queue data: ${e.message}", e)
+        }
     }
     
     /**
