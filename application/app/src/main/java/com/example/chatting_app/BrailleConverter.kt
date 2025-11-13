@@ -220,7 +220,8 @@ class BrailleConverter(private val context: Context) {
             '0' to "245", '1' to "1", '2' to "12", '3' to "14", '4' to "145",
             '5' to "15", '6' to "124", '7' to "1245", '8' to "125", '9' to "24",
             '.' to "2", ',' to "6", '!' to "235", '?' to "236", ';' to "3",
-            ':' to "23", '-' to "256", '"' to "36", '\'' to "2356", ' ' to ""
+            ':' to "23", '-' to "256", '"' to "36", '\'' to "2356", ' ' to "",
+            'ㄱ' to "1", 'ㄴ' to "2", 'ㄷ' to "3", 'ㄹ' to "4", 'ㅁ' to "5", 'ㅂ' to "6"
         )
         
         return brailleMap[character]

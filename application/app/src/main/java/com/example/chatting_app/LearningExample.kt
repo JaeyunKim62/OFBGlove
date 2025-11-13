@@ -52,6 +52,42 @@ object LearningExamples {
             category = "알파벳",
             description = "알파벳 b"
         ),
+        LearningExample(
+            id = "P1",
+            text = "ㄱ",
+            category = "버튼",
+            description = "1번 버튼"
+        ),
+        LearningExample(
+            id = "P2",
+            text = "ㄴ",
+            category = "버튼",
+            description = "2번 버튼"
+        ),
+        LearningExample(
+            id = "P3",
+            text = "ㄷ",
+            category = "버튼",
+            description = "3번 버튼"
+        ),
+        LearningExample(
+            id = "P4",
+            text = "ㄹ",
+            category = "버튼",
+            description = "4번 버튼"
+        ),
+        LearningExample(
+            id = "P5",
+            text = "ㅁ",
+            category = "버튼",
+            description = "5번 버튼"
+        ),
+        LearningExample(
+            id = "P6",
+            text = "ㅂ",
+            category = "버튼",
+            description = "6번 버튼"
+        )
     )
 }
 
