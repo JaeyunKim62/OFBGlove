@@ -13,7 +13,7 @@ class TCPBrailleServer extends EventEmitter {
     this.port = port;
     this.server = null;
     this.clients = new Set(); // WebSocket 클라이언트용
-    this.tcpClients = new Set(); // TCP 소켓용 (추가 필요)
+    this.tcpClients = new Set(); // TCP 소켓용
     this.blockedClients = new Set(); // 차단된 클라이언트 주소 저장
     this.brailleDots = [false, false, false, false, false, false];
     this.currentSettings = {
@@ -22,6 +22,8 @@ class TCPBrailleServer extends EventEmitter {
       flags: 0x00
     };
     this.patternHistory = [];
+    // 각 TCP 소켓별 버퍼 추가
+    this.tcpBuffers = new Map(); // socket -> Buffer
   }
 
   // 체크섬 계산
@@ -365,75 +367,99 @@ class TCPBrailleServer extends EventEmitter {
     
     // TCP 소켓을 별도 Set에 추가
     this.tcpClients.add(socket);
+    // 소켓별 버퍼 초기화
+    this.tcpBuffers.set(socket, Buffer.alloc(0));
     console.log(`📊 현재 TCP 클라이언트 수: ${this.tcpClients.size}`);
 
     socket.on('data', (data) => {
       console.log(`📨 TCP 데이터 수신 (${clientAddress}): ${data.length}바이트`);
-      this.processTCPData(data, clientAddress);
+      
+      // 기존 버퍼에 새 데이터 추가
+      const existingBuffer = this.tcpBuffers.get(socket) || Buffer.alloc(0);
+      const combinedBuffer = Buffer.concat([existingBuffer, data]);
+      this.tcpBuffers.set(socket, combinedBuffer);
+      
+      // 버퍼에서 모든 완전한 메시지 처리
+      this.processTCPBuffer(socket, clientAddress);
     });
 
     socket.on('close', () => {
       console.log(`🔌 TCP 클라이언트 연결 해제: ${clientAddress}`);
-      this.tcpClients.delete(socket); // TCP 소켓 제거
+      this.tcpClients.delete(socket);
+      this.tcpBuffers.delete(socket); // 버퍼 제거
     });
 
     socket.on('error', (error) => {
       console.error(`TCP 클라이언트 오류 (${clientAddress}):`, error);
-      this.tcpClients.delete(socket); // 에러 시에도 제거
+      this.tcpClients.delete(socket);
+      this.tcpBuffers.delete(socket); // 에러 시에도 버퍼 제거
     });
   }
 
-  // TCP 데이터 처리 (Python 서버와 동일한 방식)
-  processTCPData(data, clientAddress) {
-    try {
-      // 헤더 읽기 (4바이트)
-      if (data.length < 4) {
-        const logMessage = `불완전한 헤더: ${data.length}바이트`;
-        console.log(`❌ ${logMessage}`);
-        this.broadcastLog('warning', logMessage, { dataLength: data.length, clientAddress });
-        return;
+  // TCP 버퍼에서 완전한 메시지들을 처리
+  processTCPBuffer(socket, clientAddress) {
+    let buffer = this.tcpBuffers.get(socket);
+    if (!buffer || buffer.length === 0) {
+      return;
+    }
+
+    let processed = 0;
+    
+    // 버퍼에 완전한 메시지가 있는 동안 반복 처리
+    while (buffer.length >= 4) {
+      // 헤더 파싱
+      const messageType = buffer[0];
+      const dataLength = (buffer[2] << 8) | buffer[1]; // Little Endian
+      const checksum = buffer[3];
+      const totalMessageLength = 4 + dataLength;
+
+      // 메시지가 완전히 도착했는지 확인
+      if (buffer.length < totalMessageLength) {
+        // 불완전한 메시지 - 버퍼에 남겨둠
+        break;
       }
 
-      // 헤더 파싱 (Little Endian) - Python과 동일
-      const messageType = data[0];
-      const dataLength = (data[2] << 8) | data[1]; // Little Endian
-      const checksum = data[3];
+      // 완전한 메시지 추출
+      const messageData = dataLength > 0 ? buffer.slice(4, 4 + dataLength) : Buffer.alloc(0);
 
-      const messageTypeName = this.getMessageTypeName(messageType);
-      console.log(`📥 수신: ${messageTypeName} (0x${messageType.toString(16).padStart(2, '0')}), 크기=${dataLength}, 체크섬=0x${checksum.toString(16).padStart(2, '0')}`);
-
-      // 데이터 읽기
+      // 체크섬 검증 (데이터가 있는 경우만)
       if (dataLength > 0) {
-        if (data.length < 4 + dataLength) {
-          const logMessage = `불완전한 데이터: ${data.length - 4}/${dataLength}바이트`;
-          console.log(`❌ ${logMessage}`);
-          this.broadcastLog('warning', logMessage, { receivedLength: data.length - 4, expectedLength: dataLength, clientAddress });
-          return;
-        }
-
-        const messageData = data.slice(4, 4 + dataLength);
-
-        // 체크섬 검증
         const calculatedChecksum = this.calculateChecksum(messageData);
         if (calculatedChecksum !== checksum) {
           const logMessage = `체크섬 불일치: 계산=0x${calculatedChecksum.toString(16).padStart(2, '0')}, 수신=0x${checksum.toString(16).padStart(2, '0')}`;
           console.log(`❌ ${logMessage}`);
           this.broadcastLog('error', logMessage, { calculatedChecksum, receivedChecksum: checksum, clientAddress });
-          return;
+          
+          // 체크섬 오류 시 버퍼에서 이 메시지만 제거하고 계속 진행
+          buffer = buffer.slice(totalMessageLength);
+          this.tcpBuffers.set(socket, buffer);
+          processed++;
+          continue;
         }
-
-        // 메시지 타입별 처리
-        this.handleESP32Message(messageType, messageData);
-      } else {
-        // 데이터가 없는 메시지 (CLEAR 등)
-        this.handleESP32Message(messageType, Buffer.alloc(0));
       }
 
-    } catch (error) {
-      const logMessage = `TCP 데이터 처리 오류: ${error.message}`;
-      console.error(`❌ ${logMessage}`, error);
-      this.broadcastLog('error', logMessage, { error: error.message, clientAddress });
+      const messageTypeName = this.getMessageTypeName(messageType);
+      console.log(`📥 수신: ${messageTypeName} (0x${messageType.toString(16).padStart(2, '0')}), 크기=${dataLength}, 체크섬=0x${checksum.toString(16).padStart(2, '0')}`);
+
+      // 메시지 처리
+      this.handleESP32Message(messageType, messageData);
+
+      // 처리된 메시지 제거
+      buffer = buffer.slice(totalMessageLength);
+      this.tcpBuffers.set(socket, buffer);
+      processed++;
     }
+
+    if (processed > 0) {
+      console.log(`✅ ${processed}개 메시지 처리 완료, 버퍼 남은 크기: ${buffer.length}바이트`);
+    }
+  }
+
+  // 기존 processTCPData는 제거하거나 호환성을 위해 유지 (사용하지 않음)
+  processTCPData(data, clientAddress) {
+    // 이 메서드는 더 이상 사용되지 않음
+    // handleTCPClient의 socket.on('data')에서 processTCPBuffer를 직접 호출
+    console.warn('⚠️ processTCPData는 더 이상 사용되지 않습니다. processTCPBuffer를 사용하세요.');
   }
 
   // 서버 시작
