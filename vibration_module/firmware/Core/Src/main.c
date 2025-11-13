@@ -25,6 +25,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include "drv2605.h"
+#include "host_protocol.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -66,8 +67,23 @@ static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN 0 */
 extern void initialise_monitor_handles(void);
 
+static bool vib_playing = false;
+static uint32_t vib_started_at = 0U;
+static const uint8_t button_pattern[] = {DRV2605_EFFECT_STRONG_CLICK_100};
+static const uint8_t button_pattern_length = (uint8_t)sizeof(button_pattern);
+
 static bool btn_is_pressed(void) {
   return HAL_GPIO_ReadPin(BTN_IN_GPIO_Port, BTN_IN_Pin) == GPIO_PIN_RESET;
+}
+
+static void start_vibration(const uint8_t *effects, uint8_t length) {
+  if (effects == NULL || length == 0U) {
+    return;
+  }
+  drv2605_load_sequence(effects, length);
+  drv2605_play();
+  vib_playing = true;
+  vib_started_at = HAL_GetTick();
 }
 
 /* USER CODE END 0 */
@@ -113,6 +129,7 @@ int main(void)
       .enable_pin = VIB_EN_Pin,
   };
   drv2605_init(&drv2605_config);
+  host_if_init(&hi2c2);
   const uint32_t playback_timeout_ms = 1000U;
   const uint32_t button_poll_interval_ms = 5U;
   const uint32_t button_debounce_ms = 20U;
@@ -137,16 +154,40 @@ int main(void)
     bool stable_pressed =
         btn_state && (HAL_GetTick() - btn_last_change) >= button_debounce_ms;
 
-    if (stable_pressed && !btn_latched) {
-      puts("Button press detected. Triggering vibration.");
-      drv2605_play();
-      drv2605_wait_go_clear_or_die(playback_timeout_ms);
-      puts("Vibration complete.");
-      btn_latched = true;
-    } else if (!stable_pressed) {
+    if (!stable_pressed) {
       btn_latched = false;
     }
 
+    bool stop_requested = host_if_take_stop_request();
+    if (stop_requested && vib_playing) {
+      puts("Host stop request received. Stopping vibration.");
+      drv2605_stop();
+      vib_playing = false;
+    }
+
+    if (vib_playing) {
+      bool driver_busy = drv2605_is_busy();
+      bool timed_out = (HAL_GetTick() - vib_started_at) >= playback_timeout_ms;
+      if (!driver_busy || timed_out) {
+        if (timed_out) {
+          puts("Vibration timeout hit. Forcing stop.");
+          drv2605_stop();
+        }
+        vib_playing = false;
+      }
+    } else {
+      host_if_pattern_t host_pattern;
+      if (host_if_take_play_request(&host_pattern)) {
+        puts("Host pattern received. Triggering vibration.");
+        start_vibration(host_pattern.effects, host_pattern.length);
+      } else if (stable_pressed && !btn_latched) {
+        puts("Button press detected. Triggering vibration.");
+        start_vibration(button_pattern, button_pattern_length);
+        btn_latched = true;
+      }
+    }
+
+    host_if_update_runtime_state(stable_pressed, vib_playing);
     HAL_Delay(button_poll_interval_ms);
   }
   /* USER CODE END 3 */
@@ -257,12 +298,12 @@ static void MX_I2C2_Init(void)
   /* USER CODE END I2C2_Init 1 */
   hi2c2.Instance = I2C2;
   hi2c2.Init.Timing = 0x00503D58;
-  hi2c2.Init.OwnAddress1 = 0;
+  hi2c2.Init.OwnAddress1 = 2;
   hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
   hi2c2.Init.OwnAddress2 = 0;
   hi2c2.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
-  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_ENABLE;
   hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
   if (HAL_I2C_Init(&hi2c2) != HAL_OK)
   {

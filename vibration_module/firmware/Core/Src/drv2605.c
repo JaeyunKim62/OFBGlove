@@ -22,8 +22,6 @@ extern void Error_Handler(void);
 #define DRV2605_MODE_AUTOCAL 0x07
 
 #define DRV2605_LIB_LRA 0x06
-#define DRV2605_EFFECT_STRONG_CLICK_100 1
-
 #define DRV2605_RATED_VOLT_CODE 0x53
 #define DRV2605_OD_CLAMP_CODE 0x89
 
@@ -129,3 +127,39 @@ void drv2605_play(void) {
   DRV2605_CHECK(drv2605_write(DRV2605_REG_GO, 0x01),
                 "[DRV2605] write GO trigger failed");
 }
+
+void drv2605_stop(void) {
+  DRV2605_CHECK(drv2605_write(DRV2605_REG_GO, 0x00),
+                "[DRV2605] write GO stop failed");
+}
+
+bool drv2605_is_busy(void) {
+  uint8_t go = 0U;
+  DRV2605_CHECK(drv2605_read(DRV2605_REG_GO, &go),
+                "[DRV2605] read GO state failed");
+  drv2605_last_go = go;
+  return (go & 0x01U) != 0U;
+}
+
+void drv2605_load_sequence(const uint8_t *effects, size_t length) {
+  if (effects == NULL || length == 0U ||
+      length > DRV2605_MAX_SEQUENCE_LENGTH) {
+    drv2605_report_error("[DRV2605] invalid sequence length", HAL_ERROR);
+  }
+  for (size_t slot = 0; slot < DRV2605_MAX_SEQUENCE_LENGTH; ++slot) {
+    uint8_t value = (slot < length) ? effects[slot] : 0U;
+    DRV2605_CHECK(
+        drv2605_write(DRV2605_REG_WAVESEQ1 + (uint8_t)slot, value),
+        "[DRV2605] write WAVESEQ slot failed");
+  }
+}
+
+HAL_StatusTypeDef drv2605_get_last_status(void) { return drv2605_last_status; }
+
+uint32_t drv2605_get_last_i2c_error(void) { return drv2605_last_i2c_err; }
+
+const char *drv2605_get_last_context(void) {
+  return (const char *)drv2605_last_context;
+}
+
+uint8_t drv2605_get_last_go(void) { return drv2605_last_go; }
