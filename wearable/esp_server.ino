@@ -1,4 +1,28 @@
 #include <WiFi.h>
+#include <Wire.h>
+
+#ifndef MOTOR_I2C_SDA_PIN
+#define MOTOR_I2C_SDA_PIN 6
+#endif
+
+#ifndef MOTOR_I2C_SCL_PIN
+#define MOTOR_I2C_SCL_PIN 7
+#endif
+
+#ifndef MOTOR_I2C_CLOCK_HZ
+#define MOTOR_I2C_CLOCK_HZ 400000UL
+#endif
+
+constexpr uint8_t BRAILLE_DOT_COUNT = 6;
+constexpr uint8_t BRAILLE_DOT_ADDRESSES[BRAILLE_DOT_COUNT] = {0x02, 0x04, 0x06, 0x08, 0x0A, 0x0C};
+
+constexpr uint8_t MOTOR_CMD_PLAY_PATTERN = 0x01;
+constexpr uint8_t MOTOR_CMD_STOP         = 0x02;
+constexpr uint8_t MOTOR_FRAME_SIZE       = 10;
+constexpr uint8_t MOTOR_MAX_PATTERN_LEN  = 8;
+constexpr uint8_t DEFAULT_WAVEFORM_ID    = 0x01;
+constexpr uint8_t DEFAULT_PATTERN_LEN    = 1;
+constexpr uint16_t BRAILLE_PATTERN_HOLD_MS = 180;
 
 const char* apSsid     = "OFBG_AP";
 const char* apPassword = "12345678";       // 8자 이상
@@ -10,6 +34,139 @@ bool        clientConnected = false;
 
 uint8_t inputBuffer[1024];
 size_t  inputBufferIndex = 0;
+
+bool motorBusReady = false;
+bool motorActiveState[BRAILLE_DOT_COUNT] = { false, false, false, false, false, false };
+
+struct MotorStatusFrame {
+    uint8_t statusBits;
+    uint8_t buttonState;
+    uint8_t lastError;
+    uint8_t lastPatternLen;
+};
+
+bool motorSendCommand(uint8_t address, uint8_t cmd, const uint8_t* payload, uint8_t len) {
+    if (!motorBusReady) {
+        Serial.println("[WARN] Motor bus not initialized");
+        return false;
+    }
+
+    if (cmd == MOTOR_CMD_PLAY_PATTERN) {
+        if (len == 0 || len > MOTOR_MAX_PATTERN_LEN) {
+            Serial.printf("[ERROR] Invalid play pattern length %u for address 0x%02X\n", len, address);
+            return false;
+        }
+    } else {
+        len = 0;
+    }
+
+    uint8_t frame[MOTOR_FRAME_SIZE] = {0};
+    frame[0] = cmd;
+    frame[1] = len;
+
+    if (len > 0 && payload == nullptr) {
+        Serial.println("[ERROR] Payload is null");
+        return false;
+    }
+
+    for (uint8_t i = 0; i < len; ++i) {
+        frame[2 + i] = payload[i];
+    }
+
+    Wire.beginTransmission(address);
+    Wire.write(frame, MOTOR_FRAME_SIZE);
+    int err = Wire.endTransmission();
+    if (err != 0) {
+        Serial.printf("[ERROR] I2C write failed addr=0x%02X err=%d\n", address, err);
+        return false;
+    }
+
+    return true;
+}
+
+bool motorReadStatus(uint8_t address, MotorStatusFrame& status) {
+    if (!motorBusReady) return false;
+
+    const uint8_t expectedBytes = sizeof(MotorStatusFrame);
+    uint8_t received = Wire.requestFrom(address, expectedBytes);
+    if (received != expectedBytes) {
+        Serial.printf("[WARN] Status read failed addr=0x%02X received=%u\n", address, received);
+        return false;
+    }
+
+    status.statusBits     = Wire.read();
+    status.buttonState    = Wire.read();
+    status.lastError      = Wire.read();
+    status.lastPatternLen = Wire.read();
+    return true;
+}
+
+bool motorPlayPattern(uint8_t dotIndex, const uint8_t* pattern, uint8_t len) {
+    if (dotIndex >= BRAILLE_DOT_COUNT) return false;
+    return motorSendCommand(BRAILLE_DOT_ADDRESSES[dotIndex], MOTOR_CMD_PLAY_PATTERN, pattern, len);
+}
+
+bool motorStop(uint8_t dotIndex) {
+    if (dotIndex >= BRAILLE_DOT_COUNT) return false;
+    return motorSendCommand(BRAILLE_DOT_ADDRESSES[dotIndex], MOTOR_CMD_STOP, nullptr, 0);
+}
+
+void stopAllMotors(bool force = false) {
+    for (uint8_t i = 0; i < BRAILLE_DOT_COUNT; ++i) {
+        if (force || motorActiveState[i]) {
+            if (motorStop(i)) {
+                motorActiveState[i] = false;
+            }
+        }
+    }
+}
+
+void applyBraillePattern(uint8_t dotsByte) {
+    const uint8_t pattern[DEFAULT_PATTERN_LEN] = { DEFAULT_WAVEFORM_ID };
+
+    for (uint8_t dot = 0; dot < BRAILLE_DOT_COUNT; ++dot) {
+        bool shouldActivate = (dotsByte & (1U << dot)) != 0;
+
+        if (shouldActivate) {
+            if (motorPlayPattern(dot, pattern, DEFAULT_PATTERN_LEN)) {
+                motorActiveState[dot] = true;
+            }
+        } else if (motorActiveState[dot]) {
+            if (motorStop(dot)) {
+                motorActiveState[dot] = false;
+            }
+        }
+    }
+}
+
+void logMotorStatuses() {
+#if defined(SERIAL_DEBUG_MOTOR_STATUS)
+    MotorStatusFrame status{};
+    for (uint8_t i = 0; i < BRAILLE_DOT_COUNT; ++i) {
+        if (motorReadStatus(BRAILLE_DOT_ADDRESSES[i], status)) {
+            Serial.printf("[MOTOR] dot=%u status=0x%02X button=%u err=%u len=%u\n",
+                          i + 1, status.statusBits, status.buttonState,
+                          status.lastError, status.lastPatternLen);
+        }
+    }
+#endif
+}
+
+void motorInit() {
+    if (motorBusReady) return;
+
+    motorBusReady = Wire.begin(MOTOR_I2C_SDA_PIN, MOTOR_I2C_SCL_PIN, MOTOR_I2C_CLOCK_HZ);
+    if (!motorBusReady) {
+        Serial.println("[ERROR] Failed to init I2C bus for motors");
+        return;
+    }
+
+    Wire.setClock(MOTOR_I2C_CLOCK_HZ);
+    Serial.printf("[INFO] Motor I2C bus ready (SDA=%d SCL=%d Freq=%lu)\n",
+                  MOTOR_I2C_SDA_PIN, MOTOR_I2C_SCL_PIN, MOTOR_I2C_CLOCK_HZ);
+
+    stopAllMotors(true);
+}
 
 enum MessageType : uint8_t {
     MSG_WORD_SEQUENCE      = 0x08,
@@ -29,22 +186,24 @@ void sendPatternFromSerial(uint8_t dotsByte) {
     Serial.printf("[DEBUG] Sending pattern: 0x%02X\n", dotsByte);
     if (!clientConnected || !client.connected()) {
         Serial.println("[WARN] No TCP client connected");
-        return;
+    } else {
+        uint8_t header[4];
+        header[0] = 0x03;           // PATTERN_COMPLETE
+        header[1] = 0x01;           // data length LSB
+        header[2] = 0x00;           // data length MSB
+        header[3] = dotsByte;       // checksum = payload XOR
+
+        uint8_t payload[1] = { dotsByte };
+
+        client.write(header, 4);
+        client.write(payload, 1);
+        client.flush();
+
+        Serial.printf("[TX] PATTERN_COMPLETE dots=0x%02X checksum=0x%02X\n", dotsByte, header[3]);
     }
 
-    uint8_t header[4];
-    header[0] = 0x01;           // PATTERN_COMPLETE
-    header[1] = 0x01;           // data length LSB
-    header[2] = 0x00;           // data length MSB
-    header[3] = dotsByte;       // checksum = payload XOR
-
-    uint8_t payload[1] = { dotsByte };
-
-    client.write(header, 4);
-    client.write(payload, 1);
-    client.flush();
-
-    Serial.printf("[TX] PATTERN_COMPLETE dots=0x%02X checksum=0x%02X\n", dotsByte, header[3]);
+    applyBraillePattern(dotsByte);
+    logMotorStatuses();
 }
 
 void handleSerialInput() {
@@ -85,15 +244,30 @@ void handleWordSequence(uint8_t* data, size_t len) {
     for (uint8_t i = 0; i < count; ++i) {
         uint8_t dots = data[1 + i];
         Serial.printf("  pattern[%u]=0x%02X\n", i, dots);
-        // TODO: setBraillePattern(dots); updateBrailleDisplay(); etc.
-        delay(100);
+        applyBraillePattern(dots);
+        logMotorStatuses();
+        delay(BRAILLE_PATTERN_HOLD_MS);
     }
+
+    stopAllMotors();
 }
 
-void handleClear()              { Serial.println("[RX] CLEAR"); }
-void handleWordSeparator()      { Serial.println("[RX] WORD_SEPARATOR"); }
-void handleSentenceSeparator()  { Serial.println("[RX] SENTENCE_SEPARATOR"); }
-void handleBrailleSeparator()   { Serial.println("[RX] BRAILLE_SEPARATOR"); }
+void handleClear() {
+    Serial.println("[RX] CLEAR");
+    stopAllMotors();
+}
+void handleWordSeparator() {
+    Serial.println("[RX] WORD_SEPARATOR");
+    stopAllMotors();
+}
+void handleSentenceSeparator()  {
+    Serial.println("[RX] SENTENCE_SEPARATOR");
+    stopAllMotors();
+}
+void handleBrailleSeparator()   {
+    Serial.println("[RX] BRAILLE_SEPARATOR");
+    stopAllMotors();
+}
 
 void handleReceivedMessage(uint8_t type, uint8_t* data, size_t len) {
     Serial.printf("[RX] Type=0x%02X Len=%u\n", type, len);
@@ -171,6 +345,7 @@ void setup() {
     startAccessPoint();
     server.begin();
     Serial.printf("TCP server active on %d\n", TCP_PORT);
+    motorInit();
 }
 
 void loop() {
@@ -190,6 +365,7 @@ void loop() {
         client.stop();
         inputBufferIndex = 0;
         Serial.println("Client disconnected");
+        stopAllMotors();
         return;
     }
 
