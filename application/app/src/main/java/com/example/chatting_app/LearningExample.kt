@@ -21,8 +21,37 @@ object LearningExamples {
             text = "hello world",
             category = "기본",
             description = "기본 인사말"
-        )
-        // 향후 추가 예시들...
+        ),
+        LearningExample(
+            id = "good_morning",
+            text = "good morning",
+            category = "인사말",
+            description = "아침 인사"
+        ),
+        LearningExample(
+            id = "thank_you",
+            text = "thank you",
+            category = "인사말",
+            description = "감사 인사"
+        ),
+        LearningExample(
+            id = "how_are_you",
+            text = "how are you",
+            category = "질문",
+            description = "안부 질문"
+        ),
+        LearningExample(
+            id = "a",
+            text = "a",
+            category = "알파벳",
+            description = "알파벳 a"
+        ),
+        LearningExample(
+            id = "b",
+            text = "b",
+            category = "알파벳",
+            description = "알파벳 b"
+        ),
     )
 }
 
