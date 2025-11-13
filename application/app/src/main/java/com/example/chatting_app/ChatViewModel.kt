@@ -1010,8 +1010,9 @@ class ChatViewModel : ViewModel() {
     
     /**
      * 음성 인식 결과를 WiFi로 전송
+     * (public으로 변경하여 버튼 클릭 시에도 재사용 가능)
      */
-    private fun sendVoiceToWifi(text: String) {
+    fun sendVoiceToWifi(text: String) {
         if (_isWifiConnected.value) {
             // 점자 변환 (캐시된 결과 사용)
             val braille = brailleConverter?.convertToBraille(text) ?: ""

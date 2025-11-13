@@ -58,7 +58,9 @@ fun ChatScreen(
     // 음성 점자 패턴 관련 매개변수
     onNextVoicePattern: () -> Unit = {},
     onPreviousVoicePattern: () -> Unit = {},
-    onExitVoiceMode: () -> Unit = {}
+    onExitVoiceMode: () -> Unit = {},
+    // 학습 페이지로 이동
+    onNavigateToLearning: () -> Unit = {}
 ) {
     // 현재 활성 사용자 - 음성 발화자만 사용 (시청각장애인 비활성화)
     var currentActiveUser by remember { mutableStateOf(ActiveUserType.AUDIO_SPEAKER) }
@@ -129,6 +131,20 @@ fun ChatScreen(
         val horizontalPadding = (screenWidth * 0.03f).coerceAtLeast(8.dp).coerceAtMost(24.dp)
         val verticalPadding = (screenHeight * 0.02f).coerceAtLeast(8.dp).coerceAtMost(20.dp)
         val spacing = (screenWidth * 0.04f).coerceAtLeast(12.dp).coerceAtMost(24.dp)
+        
+        // 학습 페이지 버튼
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = horizontalPadding, vertical = 8.dp),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Button(
+                onClick = onNavigateToLearning
+            ) {
+                Text("학습 페이지")
+            }
+        }
         
         // 입력 영역 - 음성 발화자만 사용 (시청각장애인 입력 영역 비활성화)
         Column(

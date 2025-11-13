@@ -64,6 +64,14 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * 화면 타입 enum
+ */
+enum class Screen {
+    Chat,
+    Learning
+}
+
 @Composable
 fun ChatApp(
     viewModel: ChatViewModel,
@@ -85,6 +93,9 @@ fun ChatApp(
     
     // 저장된 IP 주소
     val savedIpAddress by viewModel.savedIpAddress.collectAsStateWithLifecycle()
+    
+    // 화면 상태 관리
+    var currentScreen by remember { mutableStateOf(Screen.Chat) }
     
     // 점자 입력 상태는 ChatScreen에서만 구독
     
@@ -155,11 +166,13 @@ fun ChatApp(
                 }
             }
             
-            // 기존 채팅 화면
-            ChatScreen(
-                modifier = Modifier.fillMaxSize(),
-                // 왼쪽 사용자 (시청각장애인) 점자 입력만 유지
-                onVisualImpairedBrailleMessage = {
+            // 화면 전환 로직
+            when (currentScreen) {
+                Screen.Chat -> {
+                    ChatScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        // 왼쪽 사용자 (시청각장애인) 점자 입력만 유지
+                        onVisualImpairedBrailleMessage = {
                     val currentState = brailleInputStateFlow.value
                     android.util.Log.d("MainActivity", "시청각장애인 점자 전송 - 현재 상태: $currentState")
                     android.util.Log.d("MainActivity", "전송할 텍스트: '${currentState.inputText}' (길이: ${currentState.inputText.length})")
@@ -215,8 +228,22 @@ fun ChatApp(
                 },
                 onExitVoiceMode = {
                     viewModel.exitVoiceBrailleMode()
+                },
+                // 학습 페이지로 이동
+                onNavigateToLearning = {
+                    currentScreen = Screen.Learning
                 }
-            )
+                    )
+                }
+                Screen.Learning -> {
+                    LearningScreen(
+                        viewModel = viewModel,
+                        onNavigateBack = {
+                            currentScreen = Screen.Chat
+                        }
+                    )
+                }
+            }
         }
     }
 }
