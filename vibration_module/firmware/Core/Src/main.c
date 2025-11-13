@@ -22,7 +22,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdint.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include "drv2605.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -62,119 +64,10 @@ static void MX_USART2_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-// Minimal DRV2605L helper definitions for periodic haptics.
-#define DRV2605_ADDR (0x5A << 1)
-
-#define DRV2605_REG_MODE 0x01
-#define DRV2605_REG_LIBRARY 0x03
-#define DRV2605_REG_WAVESEQ1 0x04
-#define DRV2605_REG_GO 0x0C
-#define DRV2605_REG_RATEDV 0x16
-#define DRV2605_REG_CLAMPV 0x17
-#define DRV2605_REG_FEEDBACK 0x1A
-#define DRV2605_REG_CTRL1 0x1B
-#define DRV2605_REG_CTRL2 0x1C
-#define DRV2605_REG_CTRL3 0x1D
-#define DRV2605_REG_AUTOCAL 0x1E
-
-#define DRV2605_MODE_INTTRIG 0x00
-#define DRV2605_MODE_AUTOCAL 0x07
-
-#define DRV2605_LIB_LRA 0x06
-#define DRV2605_EFFECT_STRONG_CLICK_100 1
-
-#define DRV2605_RATED_VOLT_CODE 0x53
-#define DRV2605_OD_CLAMP_CODE 0x89
-
 extern void initialise_monitor_handles(void);
 
-static volatile HAL_StatusTypeDef drv2605_last_status = HAL_OK;
-static volatile uint32_t drv2605_last_i2c_err = 0U;
-static volatile const char *drv2605_last_context = NULL;
-static volatile uint8_t drv2605_last_go = 0U;
-
-static HAL_StatusTypeDef drv2605_write(uint8_t reg, uint8_t val) {
-  return HAL_I2C_Mem_Write(&hi2c1, DRV2605_ADDR, reg, I2C_MEMADD_SIZE_8BIT,
-                           &val, 1, 100);
-}
-
-static HAL_StatusTypeDef drv2605_read(uint8_t reg, uint8_t *val) {
-  return HAL_I2C_Mem_Read(&hi2c1, DRV2605_ADDR, reg, I2C_MEMADD_SIZE_8BIT, val,
-                          1, 100);
-}
-
-static void drv2605_report_error(const char *context,
-                                 HAL_StatusTypeDef status) {
-  drv2605_last_context = context;
-  drv2605_last_status = status;
-  drv2605_last_i2c_err = HAL_I2C_GetError(&hi2c1);
-  puts(context);
-  Error_Handler();
-}
-
-#define DRV2605_CHECK(call, context)                                           \
-  do {                                                                         \
-    HAL_StatusTypeDef _status = (call);                                        \
-    if (_status != HAL_OK) {                                                   \
-      drv2605_report_error((context), _status);                                \
-    }                                                                          \
-  } while (0)
-
-static void drv2605_wait_go_clear_or_die(uint32_t timeout_ms) {
-  uint32_t start = HAL_GetTick();
-  uint8_t go = 1;
-  while ((HAL_GetTick() - start) < timeout_ms) {
-    DRV2605_CHECK(drv2605_read(DRV2605_REG_GO, &go),
-                  "[DRV2605] poll GO read failed");
-    drv2605_last_go = go;
-    if ((go & 0x01U) == 0U) {
-      return;
-    }
-  }
-  drv2605_last_go = go;
-  drv2605_report_error("[DRV2605] poll GO timed out", HAL_TIMEOUT);
-}
-
-static void drv2605_init_lra(void) {
-  HAL_Delay(1);
-  HAL_GPIO_WritePin(VIB_EN_GPIO_Port, VIB_EN_Pin, GPIO_PIN_SET);
-  HAL_Delay(1);
-
-  DRV2605_CHECK(drv2605_write(DRV2605_REG_MODE, DRV2605_MODE_INTTRIG),
-                "[DRV2605] write MODE failed");
-  DRV2605_CHECK(drv2605_write(DRV2605_REG_LIBRARY, DRV2605_LIB_LRA),
-                "[DRV2605] write LIBRARY failed");
-  DRV2605_CHECK(drv2605_write(DRV2605_REG_RATEDV, DRV2605_RATED_VOLT_CODE),
-                "[DRV2605] write RATEDV failed");
-  DRV2605_CHECK(drv2605_write(DRV2605_REG_CLAMPV, DRV2605_OD_CLAMP_CODE),
-                "[DRV2605] write CLAMPV failed");
-  DRV2605_CHECK(drv2605_write(DRV2605_REG_FEEDBACK, 0x36),
-                "[DRV2605] write FEEDBACK failed");
-  DRV2605_CHECK(drv2605_write(DRV2605_REG_CTRL1, 0x13),
-                "[DRV2605] write CTRL1 failed");
-  DRV2605_CHECK(drv2605_write(DRV2605_REG_CTRL2, 0xF5),
-                "[DRV2605] write CTRL2 failed");
-  DRV2605_CHECK(drv2605_write(DRV2605_REG_CTRL3, 0x80),
-                "[DRV2605] write CTRL3 failed");
-  (void)drv2605_write(DRV2605_REG_AUTOCAL, 0x20);
-
-  DRV2605_CHECK(drv2605_write(DRV2605_REG_MODE, DRV2605_MODE_AUTOCAL),
-                "[DRV2605] write MODE AUTOCAL failed");
-  DRV2605_CHECK(drv2605_write(DRV2605_REG_GO, 0x01),
-                "[DRV2605] write GO start failed");
-  drv2605_wait_go_clear_or_die(2000);
-  DRV2605_CHECK(drv2605_write(DRV2605_REG_MODE, DRV2605_MODE_INTTRIG),
-                "[DRV2605] write MODE back to INTTRIG failed");
-  DRV2605_CHECK(
-      drv2605_write(DRV2605_REG_WAVESEQ1, DRV2605_EFFECT_STRONG_CLICK_100),
-      "[DRV2605] write WAVESEQ1 failed");
-  DRV2605_CHECK(drv2605_write(DRV2605_REG_WAVESEQ1 + 1U, 0x00),
-                "[DRV2605] write WAVESEQ2 stop failed");
-}
-
-static void drv2605_play(void) {
-  DRV2605_CHECK(drv2605_write(DRV2605_REG_GO, 0x01),
-                "[DRV2605] write GO trigger failed");
+static bool btn_is_pressed(void) {
+  return HAL_GPIO_ReadPin(BTN_IN_GPIO_Port, BTN_IN_Pin) == GPIO_PIN_RESET;
 }
 
 /* USER CODE END 0 */
@@ -214,9 +107,19 @@ int main(void)
   /* USER CODE BEGIN 2 */
   initialise_monitor_handles();
   puts("Hello from semihosting!");
-  drv2605_init_lra();
+  const drv2605_config_t drv2605_config = {
+      .hi2c = &hi2c1,
+      .enable_port = VIB_EN_GPIO_Port,
+      .enable_pin = VIB_EN_Pin,
+  };
+  drv2605_init(&drv2605_config);
   const uint32_t playback_timeout_ms = 1000U;
-  const uint32_t interval_between_effects_ms = 2000U;
+  const uint32_t button_poll_interval_ms = 5U;
+  const uint32_t button_debounce_ms = 20U;
+
+  bool btn_state = btn_is_pressed();
+  bool btn_latched = btn_state;
+  uint32_t btn_last_change = HAL_GetTick();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -225,11 +128,26 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    drv2605_play();
-    drv2605_wait_go_clear_or_die(playback_timeout_ms);
-    puts("Vibration!");
+    bool current_state = btn_is_pressed();
+    if (current_state != btn_state) {
+      btn_state = current_state;
+      btn_last_change = HAL_GetTick();
+    }
 
-    HAL_Delay(interval_between_effects_ms);
+    bool stable_pressed =
+        btn_state && (HAL_GetTick() - btn_last_change) >= button_debounce_ms;
+
+    if (stable_pressed && !btn_latched) {
+      puts("Button press detected. Triggering vibration.");
+      drv2605_play();
+      drv2605_wait_go_clear_or_die(playback_timeout_ms);
+      puts("Vibration complete.");
+      btn_latched = true;
+    } else if (!stable_pressed) {
+      btn_latched = false;
+    }
+
+    HAL_Delay(button_poll_interval_ms);
   }
   /* USER CODE END 3 */
 }
@@ -425,11 +343,11 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, VIB_EN_Pin|VIB_TRIG_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : TCH_OUT_Pin */
-  GPIO_InitStruct.Pin = TCH_OUT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  /*Configure GPIO pin : BTN_IN_Pin */
+  GPIO_InitStruct.Pin = BTN_IN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(TCH_OUT_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(BTN_IN_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : VIB_EN_Pin VIB_TRIG_Pin */
   GPIO_InitStruct.Pin = VIB_EN_Pin|VIB_TRIG_Pin;
@@ -437,10 +355,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI0_1_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI0_1_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
