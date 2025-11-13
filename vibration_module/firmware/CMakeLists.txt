@@ -12,6 +12,8 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 
+option(ENABLE_SEMIHOSTING "Link rdimon and run semihosting init/log calls" ON)
+
 
 # Define the build type
 if(NOT CMAKE_BUILD_TYPE)
@@ -45,6 +47,8 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
+    Core/Src/drv2605.c
+    Core/Src/host_protocol.c
 )
 
 # Add include paths
@@ -56,6 +60,10 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined symbols
 )
+
+if(ENABLE_SEMIHOSTING)
+    target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE SEMIHOSTING_ENABLED)
+endif()
 
 # Remove wrong libob.a library dependency when using cpp files
 list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
