@@ -20,6 +20,10 @@ set(CMAKE_EXECUTABLE_SUFFIX_CXX     ".elf")
 
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 
+if(NOT DEFINED ENABLE_SEMIHOSTING)
+  set(ENABLE_SEMIHOSTING ON)
+endif()
+
 # STARM_TOOLCHAIN_CONFIG allows you to choose the toolchain configuration.
 # Possible values are:
 #  "STARM_HYBRID"   : Hybrid configuration using starm-clang Assemler and Compiler and GNU Linker
@@ -51,8 +55,13 @@ set(CMAKE_EXE_LINKER_FLAGS "${TARGET_FLAGS}")
 
 if (STARM_TOOLCHAIN_CONFIG STREQUAL "STARM_HYBRID")
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --gcc-specs=nano.specs")
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --gcc-specs=rdimon.specs")
-  set(TOOLCHAIN_LINK_LIBRARIES m rdimon)
+  set(TOOLCHAIN_LINK_LIBRARIES m)
+  if(ENABLE_SEMIHOSTING)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --gcc-specs=rdimon.specs")
+    list(APPEND TOOLCHAIN_LINK_LIBRARIES rdimon)
+  else()
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --gcc-specs=nosys.specs")
+  endif()
 elseif(STARM_TOOLCHAIN_CONFIG STREQUAL "STARM_NEWLIB")
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lcrt0-nosys")
 elseif(STARM_TOOLCHAIN_CONFIG STREQUAL "STARM_PICOLIBC")
