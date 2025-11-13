@@ -514,31 +514,16 @@ class ChatViewModel : ViewModel() {
         if (content.isNotBlank()) {
             viewModelScope.launch {
                 try {
-                    // 통합된 점자 변환 (텍스트 + 패턴)
+                    // 통합된 점자 변환 (한 번만 변환)
                     val brailleResult = withContext(Dispatchers.IO) {
-                        if (brailleConverter != null) {
-                            try {
-                                brailleConverter!!.convertToBrailleWithPatterns(content)
-                            } catch (e: Exception) {
-                                Log.e("ChatViewModel", "점자 변환 오류: ${e.message}", e)
-                                BraillePatternResult(
-                                    originalText = content,
-                                    brailleText = "",
-                                    braillePatterns = emptyList(),
-                                    isSuccess = false,
-                                    errorMessage = e.message
-                                )
-                            }
-                        } else {
-                            Log.w("ChatViewModel", "점자 변환기가 초기화되지 않음")
-                            BraillePatternResult(
+                        brailleConverter?.convertToBrailleWithPatterns(content)
+                            ?: BraillePatternResult(
                                 originalText = content,
                                 brailleText = "",
                                 braillePatterns = emptyList(),
                                 isSuccess = false,
                                 errorMessage = "Braille converter not initialized"
                             )
-                        }
                     }
                     
                     val message = ChatMessage(
@@ -548,7 +533,7 @@ class ChatViewModel : ViewModel() {
                     )
                     addMessage(message)
                     
-                    // 점자 패턴을 점자 그리드에 표시
+                    // 점자 패턴을 점자 그리드에 표시 (같은 변환 결과 사용)
                     if (brailleResult.isSuccess && brailleResult.braillePatterns.isNotEmpty()) {
                         brailleInputManager?.setVoiceBraillePatternsFromResult(brailleResult.braillePatterns)
                     }
@@ -1014,14 +999,35 @@ class ChatViewModel : ViewModel() {
      */
     fun sendVoiceToWifi(text: String) {
         if (_isWifiConnected.value) {
-            // 점자 변환 (캐시된 결과 사용)
-            val braille = brailleConverter?.convertToBraille(text) ?: ""
-            
-            // WiFi로 전송
-            sendWifiBrailleSequence(text, braille)
-            
-            // 음성 점자 패턴을 개별적으로 서버로 전송
-            sendVoiceBraillePatternsToServer(text)
+            // 통합된 점자 변환 (한 번만 변환)
+            viewModelScope.launch {
+                try {
+                    val brailleResult = withContext(Dispatchers.IO) {
+                        brailleConverter?.convertToBrailleWithPatterns(text)
+                            ?: BraillePatternResult(
+                                originalText = text,
+                                brailleText = "",
+                                braillePatterns = emptyList(),
+                                isSuccess = false,
+                                errorMessage = "Braille converter not initialized"
+                            )
+                    }
+                    
+                    if (brailleResult.isSuccess) {
+                        // 1. WiFi로 텍스트 메시지 전송
+                        val braille = brailleResult.brailleText
+                        sendWifiBrailleSequence(text, braille)
+                        
+                        // 2. WiFi로 점자 패턴 전송
+                        sendBraillePatternsWithSeparators(text, brailleResult.braillePatterns)
+                        
+                        // 3. UI 업데이트 (같은 변환 결과 사용)
+                        brailleInputManager?.setVoiceBraillePatternsFromResult(brailleResult.braillePatterns)
+                    }
+                } catch (e: Exception) {
+                    Log.e("ChatViewModel", "음성 점자 변환/전송 오류: ${e.message}", e)
+                }
+            }
         }
     }
     
