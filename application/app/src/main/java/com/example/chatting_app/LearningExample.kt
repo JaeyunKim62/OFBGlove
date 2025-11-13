@@ -40,18 +40,14 @@ object LearningExamples {
             category = "질문",
             description = "안부 질문"
         ),
-        LearningExample(
-            id = "a",
-            text = "a",
-            category = "알파벳",
-            description = "알파벳 a"
-        ),
-        LearningExample(
-            id = "b",
-            text = "b",
-            category = "알파벳",
-            description = "알파벳 b"
-        ),
+        *('a'..'z').map { letter ->
+            LearningExample(
+                id = letter.toString(),
+                text = letter.toString(),
+                category = "알파벳",
+                description = "알파벳 $letter"
+            )
+        }.toTypedArray(),
         LearningExample(
             id = "P1",
             text = "ㄱ",
