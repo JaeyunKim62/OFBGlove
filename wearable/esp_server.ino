@@ -82,12 +82,12 @@ bool parseMessage() {
     Serial.println();
   }
 
-  // uint8_t calcCs = (len > 0) ? calculateChecksum(&inputBuffer[4], len) : 0;
-  // if (calcCs != recvCs) {
-  //   Serial.printf("[ERROR] Checksum mismatch calc=0x%02X recv=0x%02X\n", calcCs, recvCs);
-  //   inputBufferIndex = 0;
-  //   return false;
-  // }
+    uint8_t calcCs = (len > 0) ? calculateChecksum(&inputBuffer[4], len) : 0;
+    if (calcCs != recvCs) {
+        Serial.printf("[ERROR] Checksum mismatch calc=0x%02X recv=0x%02X\n", calcCs, recvCs);
+        // inputBufferIndex = 0;
+        // return false;
+    }
 
   uint8_t* payload = (len > 0) ? &inputBuffer[4] : nullptr;
   handleReceivedMessage(type, payload, len);
