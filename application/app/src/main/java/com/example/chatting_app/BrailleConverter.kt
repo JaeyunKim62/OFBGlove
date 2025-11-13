@@ -156,6 +156,7 @@ class BrailleConverter(private val context: Context) {
             // 점자 패턴 배열 생성
             val patterns = mutableListOf<List<Boolean>>()
             for (char in text.lowercase()) {
+                if (char == ' ') continue; // 공백은 점자 패턴 배열에 추가하지 않음
                 val pattern = characterToDots(char)
                 if (pattern.isNotEmpty()) {
                     patterns.add(pattern)
