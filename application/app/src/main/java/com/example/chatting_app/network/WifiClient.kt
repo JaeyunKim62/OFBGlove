@@ -209,11 +209,11 @@ class WifiClient(private val context: Context) {
                     Log.e(TAG, "Bitmap 변환 실패: 이미지 데이터가 유효하지 않음")
                 }
             } 
-            // DOT_PATTERN 메시지 처리 (0x01, 웹에서 전송된 점자 패턴)
-            else if (message.messageType == MessageType.DOT_PATTERN && message.data.isNotEmpty()) {
+            // PATTERN_COMPLETE 메시지 처리 (0x03, 웹에서 전송된 점자 패턴)
+            else if (message.messageType == MessageType.PATTERN_COMPLETE && message.data.isNotEmpty()) {
                 // dotsByte (1바이트) 추출
                 val dotsByte = message.data[0]
-                Log.d(TAG, "DOT_PATTERN 수신: 0x${dotsByte.toString(16).padStart(2, '0')}")
+                Log.d(TAG, "PATTERN_COMPLETE 수신: 0x${dotsByte.toString(16).padStart(2, '0')}")
                 
                 // 메인 스레드에서 콜백 호출 (UI 업데이트를 위해)
                 Handler(Looper.getMainLooper()).post {
