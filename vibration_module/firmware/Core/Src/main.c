@@ -65,7 +65,23 @@ static void MX_USART2_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+#if defined(SEMIHOSTING_ENABLED)
 extern void initialise_monitor_handles(void);
+
+static inline void semihost_init(void) {
+  initialise_monitor_handles();
+}
+
+static inline void semihost_log(const char *message) {
+  puts(message);
+}
+#else
+static inline void semihost_init(void) {}
+
+static inline void semihost_log(const char *message) {
+  (void)message;
+}
+#endif
 
 static bool vib_playing = false;
 static uint32_t vib_started_at = 0U;
@@ -121,8 +137,8 @@ int main(void)
   MX_I2C2_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  initialise_monitor_handles();
-  puts("Hello from semihosting!");
+  semihost_init();
+  semihost_log("Hello from semihosting!");
   const drv2605_config_t drv2605_config = {
       .hi2c = &hi2c1,
       .enable_port = VIB_EN_GPIO_Port,
@@ -160,7 +176,7 @@ int main(void)
 
     bool stop_requested = host_if_take_stop_request();
     if (stop_requested && vib_playing) {
-      puts("Host stop request received. Stopping vibration.");
+      semihost_log("Host stop request received. Stopping vibration.");
       drv2605_stop();
       vib_playing = false;
     }
@@ -170,7 +186,7 @@ int main(void)
       bool timed_out = (HAL_GetTick() - vib_started_at) >= playback_timeout_ms;
       if (!driver_busy || timed_out) {
         if (timed_out) {
-          puts("Vibration timeout hit. Forcing stop.");
+          semihost_log("Vibration timeout hit. Forcing stop.");
           drv2605_stop();
         }
         vib_playing = false;
@@ -178,10 +194,10 @@ int main(void)
     } else {
       host_if_pattern_t host_pattern;
       if (host_if_take_play_request(&host_pattern)) {
-        puts("Host pattern received. Triggering vibration.");
+        semihost_log("Host pattern received. Triggering vibration.");
         start_vibration(host_pattern.effects, host_pattern.length);
       } else if (stable_pressed && !btn_latched) {
-        puts("Button press detected. Triggering vibration.");
+        semihost_log("Button press detected. Triggering vibration.");
         start_vibration(button_pattern, button_pattern_length);
         btn_latched = true;
       }
@@ -298,7 +314,7 @@ static void MX_I2C2_Init(void)
   /* USER CODE END I2C2_Init 1 */
   hi2c2.Instance = I2C2;
   hi2c2.Init.Timing = 0x00503D58;
-  hi2c2.Init.OwnAddress1 = 2;
+  hi2c2.Init.OwnAddress1 = (uint32_t)(HOST_IF_I2C_ADDRESS << 1);
   hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
   hi2c2.Init.OwnAddress2 = 0;

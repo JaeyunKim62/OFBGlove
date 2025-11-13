@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define HOST_IF_I2C_ADDRESS 0x01U
+#define HOST_IF_I2C_ADDRESS 0x06U
 #define HOST_IF_CMD_FRAME_SIZE 10U
 #define HOST_IF_STATUS_FRAME_SIZE 4U
 #define HOST_IF_MAX_PATTERN_STEPS DRV2605_MAX_SEQUENCE_LENGTH
