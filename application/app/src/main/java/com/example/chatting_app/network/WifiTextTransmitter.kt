@@ -34,8 +34,8 @@ class WifiTextTransmitter(private val wifiClient: WifiClient) {
         data[offset++] = brailleBytes.size.toByte()
         System.arraycopy(brailleBytes, 0, data, offset, brailleBytes.size)
         
-        val packet = WifiMessageProtocol.serializeMessage(MessageType.TEXT_MESSAGE, data)
-        wifiClient.send(packet)
+        // val packet = WifiMessageProtocol.serializeMessage(MessageType.TEXT_MESSAGE, data)
+        // wifiClient.send(packet)
         
         Log.d(TAG, "Sent text message: text='$text', braille='$braille'")
     }

@@ -1031,28 +1031,40 @@ class ChatViewModel : ViewModel() {
         }
     }
 
-    // ChatViewModel.kt에 추가
-    fun sendTestDot(dotNumber: Int) {
+
+    fun sendTestDot(vararg dotNumbers: Int) {
+        if (dotNumbers.isEmpty()) {
+            Log.w("ChatViewModel", "점 번호가 비어있습니다")
+            return
+        }
+        
         if (_isWifiConnected.value) {
             viewModelScope.launch {
                 try {
                     val brailleResult = withContext(Dispatchers.IO) {
-                        brailleConverter?.testSingleDot(dotNumber)
-                            ?: BraillePatternResult(
-                                originalText = "Dot $dotNumber",
-                                brailleText = "",
-                                braillePatterns = emptyList(),
-                                isSuccess = false,
-                                errorMessage = "Braille converter not initialized"
-                            )
+                        // 단일 점인 경우 testSingleDot 사용, 여러 점인 경우 testMultipleDots 사용
+                        if (dotNumbers.size == 1) {
+                            brailleConverter?.testSingleDot(dotNumbers[0])
+                        } else {
+                            brailleConverter?.testMultipleDots(*dotNumbers)
+                        } ?: BraillePatternResult(
+                            originalText = if (dotNumbers.size == 1) "Dot ${dotNumbers[0]}" else "Dots ${dotNumbers.joinToString(",")}",
+                            brailleText = "",
+                            braillePatterns = emptyList(),
+                            isSuccess = false,
+                            errorMessage = "Braille converter not initialized"
+                        )
                     }
                     
                     if (brailleResult.isSuccess) {
+                        val description = if (dotNumbers.size == 1) {
+                            "Dot ${dotNumbers[0]}"
+                        } else {
+                            "Dots ${dotNumbers.joinToString(",")}"
+                        }
+                        
                         // 텍스트 변환 없이 점자 패턴만 전송
-                        sendBraillePatternsWithSeparators(
-                            "Dot $dotNumber", 
-                            brailleResult.braillePatterns
-                        )
+                        sendBraillePatternsWithSeparators(description, brailleResult.braillePatterns)
                         
                         // UI 업데이트
                         brailleInputManager?.setVoiceBraillePatternsFromResult(brailleResult.braillePatterns)
