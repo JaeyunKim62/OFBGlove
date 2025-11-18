@@ -255,9 +255,15 @@ void handleKeyboardTest() {
         //     serialBuffer = "";
         //     Serial.println("[INFO] Buffer cleared (duplicate input)");
         // }
-        
-        serialBuffer += key;
-        Serial.println(serialBuffer);
+
+        if (getDotOrder(key) == 0) {
+            serialBuffer = "";
+            Serial.println("[INFO] Buffer cleared (invalid input)");
+        }
+        else {
+            serialBuffer += key;
+            Serial.println(serialBuffer);
+        }
     }
     if (serialBuffer.endsWith("de")) {
         uint8_t dots = 0;
