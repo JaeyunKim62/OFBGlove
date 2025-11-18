@@ -173,7 +173,8 @@ enum MessageType : uint8_t {
     MSG_CLEAR              = 0x04,
     MSG_WORD_SEPARATOR     = 0x05,
     MSG_SENTENCE_SEPARATOR = 0x06,  
-    MSG_BRAILLE_SEPARATOR  = 0x07
+    MSG_BRAILLE_SEPARATOR  = 0x07,
+    MSG_BUTTON_PRESS       = 0x09  // 버튼 눌림 메시지 타입 추가
 };
 
 uint8_t calculateChecksum(const uint8_t* data, size_t len) {
@@ -204,6 +205,70 @@ void sendPatternFromSerial(uint8_t dotsByte) {
 
     applyBraillePattern(dotsByte);
     logMotorStatuses();
+}
+
+// 버튼 상태 추적을 위한 변수 추가
+uint8_t lastButtonState = 0;
+unsigned long lastButtonCheckTime = 0;
+const unsigned long BUTTON_CHECK_INTERVAL_MS = 50;  // 50ms마다 체크
+
+// 버튼 상태를 읽고 눌림을 감지하는 함수
+void checkAndSendButtonPress() {
+    if (!motorBusReady || !clientConnected || !client.connected()) {
+        return;
+    }
+
+    uint8_t currentButtonState = 0;
+    bool anyButtonPressed = false;
+
+    // 모든 모듈의 버튼 상태 읽기
+    for (uint8_t i = 0; i < BRAILLE_DOT_COUNT; ++i) {
+        MotorStatusFrame status{};
+        if (motorReadStatus(BRAILLE_DOT_ADDRESSES[i], status)) {
+            // buttonState가 0x01이면 눌림, STATUS_BITS의 bit3도 확인 가능
+            if (status.buttonState == 0x01 || (status.statusBits & 0x08) != 0) {
+                currentButtonState |= (1U << i);  // i번째 비트 설정
+                anyButtonPressed = true;
+            }
+        }
+    }
+
+    // 이전 상태와 다르고, 현재 눌린 버튼이 있으면 전송
+    if (currentButtonState != lastButtonState && anyButtonPressed) {
+        sendButtonPressToClient(currentButtonState);
+        lastButtonState = currentButtonState;
+    } else if (currentButtonState == 0 && lastButtonState != 0) {
+        // 모든 버튼이 떼어진 경우 상태 업데이트만
+        lastButtonState = 0;
+    }
+}
+
+// 버튼 눌림을 클라이언트에 전송하는 함수
+void sendButtonPressToClient(uint8_t dotsByte) {
+    if (!clientConnected || !client.connected()) {
+        Serial.println("[WARN] No TCP client connected for button press");
+        return;
+    }
+
+    uint8_t header[4];
+    header[0] = MSG_BUTTON_PRESS;    // 메시지 타입
+    header[1] = 0x01;                // data length LSB (1 byte)
+    header[2] = 0x00;                // data length MSB
+    header[3] = dotsByte;            // checksum = payload XOR
+
+    uint8_t payload[1] = { dotsByte };
+
+    client.write(header, 4);
+    client.write(payload, 1);
+    client.flush();
+
+    Serial.printf("[TX] BUTTON_PRESS dots=0x%02X (", dotsByte);
+    for (uint8_t i = 0; i < BRAILLE_DOT_COUNT; ++i) {
+        if (dotsByte & (1U << i)) {
+            Serial.printf("%d ", i + 1);
+        }
+    }
+    Serial.println(")");
 }
 
 void handleSerialInput() {
@@ -354,6 +419,7 @@ void loop() {
         if (client) {
             clientConnected = true;
             inputBufferIndex = 0;
+            lastButtonState = 0;  // 연결 시 버튼 상태 초기화
             Serial.println("Client connected");
             Serial.print("Remote: "); Serial.println(client.remoteIP());
         }
@@ -364,6 +430,7 @@ void loop() {
         clientConnected = false;
         client.stop();
         inputBufferIndex = 0;
+        lastButtonState = 0;  // 연결 해제 시 버튼 상태 초기화
         Serial.println("Client disconnected");
         stopAllMotors();
         return;
@@ -380,5 +447,13 @@ void loop() {
         while (parseMessage()) { /* keep draining */ }
     }
 
-    handleSerialInput();
+    // 주기적으로 버튼 상태 체크
+    unsigned long currentTime = millis();
+    if (currentTime - lastButtonCheckTime >= BUTTON_CHECK_INTERVAL_MS) {
+        checkAndSendButtonPress();
+        lastButtonCheckTime = currentTime;
+    }
+
+    // handleSerialInput();
+    // handleKeyboardTest();
 }
