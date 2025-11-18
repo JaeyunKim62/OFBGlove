@@ -297,6 +297,7 @@ void handleKeyboardTest() {
             Serial.println("[INFO] Buffer cleared (earlier dot pressed)");
             Serial.println(serialBuffer);
         }
+        // 같은 경우?
     }
 }
 void handleWordSequence(uint8_t* data, size_t len) {
@@ -418,6 +419,7 @@ void setup() {
 }
 
 void loop() {
+    handleKeyboardTest();
     if (!clientConnected) {
         client = server.available();
         if (client) {
@@ -450,5 +452,4 @@ void loop() {
     }
 
     // handleSerialInput();
-    handleKeyboardTest();
 }
