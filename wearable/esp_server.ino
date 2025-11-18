@@ -404,7 +404,8 @@ void handleButtonIOTest() {
     static uint8_t lastPhysicalMask = 0;  // 직전 물리 버튼 상태
     static unsigned long lastPoll = 0;
     const unsigned long POLL_INTERVAL_MS = 30;
-    const uint8_t NEXT_BUTTON_BIT = (1U << 5); // 예: 6번 버튼을 커밋 키로 사용 (필요에 맞게 수정)
+    const uint8_t NEXT_BUTTON_START = (1U << 4); // 예: 5번 버튼을 커밋 키로 사용 (필요에 맞게 수정)
+    const uint8_t NEXT_BUTTON_END = (1U << 5); // 예: 6번 버튼을 취소 키로 사용 (필요에 맞게 수정)
 
     if (!motorBusReady) return;
     
@@ -428,9 +429,11 @@ void handleButtonIOTest() {
     lastPhysicalMask = currentMask;
 
     // 2) 커밋 버튼이 눌렸을 때
-    bool nextButtonPressed = (currentMask & NEXT_BUTTON_BIT) != 0;
-    if (nextButtonPressed) {
+    bool startButtonPressed = (composingMask & NEXT_BUTTON_START) != 0;
+    bool endButtonPressed = (currentMask & NEXT_BUTTON_END) != 0;
+    if (startButtonPressed && endButtonPressed) {
         if (composingMask != 0) {
+            composingMask = composingMask[composingMask.length() - 1];
             Serial.printf("[BUTTON_TEST] commit mask=0x%02X\n", composingMask);
             applyBraillePattern(composingMask);
             composingMask = 0;
