@@ -13,6 +13,8 @@
 #define MOTOR_I2C_CLOCK_HZ 400000UL
 #endif
 
+#define SERIAL_DEBUG_MOTOR_STATUS
+
 constexpr uint8_t BRAILLE_DOT_COUNT = 6;
 constexpr uint8_t BRAILLE_DOT_ADDRESSES[BRAILLE_DOT_COUNT] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
 
