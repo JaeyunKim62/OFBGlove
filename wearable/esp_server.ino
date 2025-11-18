@@ -393,6 +393,59 @@ void handleKeyboardTest() {
         // 같은 경우?
     }
 }
+
+// 버튼 누름 -> 진동 울림
+// 입력 방식은 같은 방식
+// 각 버튼 누르는 것을 handleKeyboardTest() 처럼 처리
+// 종료 조건은 65 버튼 누르면 종료
+// 이후 이 버튼에 맞춰서 점자 진동: applyBraillePattern(currentMask);
+void handleButtonIOTest() {
+    static uint8_t composingMask = 0;     // 현재 조합 중인 점자 패턴
+    static uint8_t lastPhysicalMask = 0;  // 직전 물리 버튼 상태
+    static unsigned long lastPoll = 0;
+    const unsigned long POLL_INTERVAL_MS = 30;
+    const uint8_t NEXT_BUTTON_BIT = (1U << 5); // 예: 6번 버튼을 커밋 키로 사용 (필요에 맞게 수정)
+
+    if (!motorBusReady) return;
+    
+    unsigned long now = millis();
+    if (now - lastPoll < POLL_INTERVAL_MS) return;
+    lastPoll = now;
+
+    // 1) 물리 버튼 상태 읽기
+    uint8_t currentMask = 0;
+    for (uint8_t i = 0; i < BRAILLE_DOT_COUNT; ++i) {
+        MotorStatusFrame status{};
+        if (!motorReadStatus(BRAILLE_DOT_ADDRESSES[i], status)) continue;
+
+        bool pressed = (status.buttonState == 0x01) || ((status.statusBits & 0x08) != 0);
+        if (pressed) {
+            currentMask |= (1U << i);
+        }
+    }
+
+    if (currentMask == lastPhysicalMask) return; // 변화 없음
+    lastPhysicalMask = currentMask;
+
+    // 2) 커밋 버튼이 눌렸을 때
+    bool nextButtonPressed = (currentMask & NEXT_BUTTON_BIT) != 0;
+    if (nextButtonPressed) {
+        if (composingMask != 0) {
+            Serial.printf("[BUTTON_TEST] commit mask=0x%02X\n", composingMask);
+            applyBraillePattern(composingMask);
+            composingMask = 0;
+        }
+        return;
+    }
+
+    // 3) 점자 버튼 입력 누적
+    if (currentMask != 0) {
+        composingMask |= currentMask;
+        Serial.printf("[BUTTON_TEST] composing mask=0x%02X\n", composingMask);
+    } else if (composingMask != 0) {
+        Serial.println("[BUTTON_TEST] waiting for commit key (mask held)");
+    }
+}
 void handleWordSequence(uint8_t* data, size_t len) {
     if (len < 1) {
         Serial.println("[ERROR] WORD_SEQUENCE: Invalid length");
@@ -513,6 +566,7 @@ void setup() {
 
 void loop() {
     handleKeyboardTest();
+    handleButtonIOTest();
     if (!clientConnected) {
         client = server.available();
         if (client) {
