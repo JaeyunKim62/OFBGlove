@@ -443,6 +443,6 @@ void loop() {
         while (parseMessage()) { /* keep draining */ }
     }
 
-    handleSerialInput();
+    // handleSerialInput();
     handleKeyboardTest();
 }
