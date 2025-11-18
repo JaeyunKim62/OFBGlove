@@ -311,6 +311,9 @@ void handleKeyboardTest() {
         if (c == 'f') return 4;
         if (c == 'e') return 5;
         if (c == 'd') return 6;
+        if (c == '1') return 7;
+        if (c == '2') return 7;
+        if (c == '3') return 7;
         return 0;  // 알 수 없는 문자
     };
 
@@ -326,6 +329,27 @@ void handleKeyboardTest() {
             continue;
         }
         if (getDotOrder(key) == 0) {
+            serialBuffer = "";
+            Serial.println("[INFO] Buffer cleared (invalid input)");
+        }
+        else if (getDotOrder(key) == 7) {
+            uint8_t dots = 0;
+            for (int i = 0; i < serialBuffer.length(); i++) {
+                if (serialBuffer[i] == 'c') {
+                    dots |= 1 << 0;
+                } else if (serialBuffer[i] == 'b') {
+                    dots |= 1 << 1;
+                } else if (serialBuffer[i] == 'a') {
+                    dots |= 1 << 2;
+                } else if (serialBuffer[i] == 'f') {
+                    dots |= 1 << 3;
+                } else if (serialBuffer[i] == 'e') {
+                    dots |= 1 << 4;
+                } else if (serialBuffer[i] == 'd') {
+                    dots |= 1 << 5;
+                }
+            }
+            applyBraillePattern(dots);
             serialBuffer = "";
             Serial.println("[INFO] Buffer cleared (invalid input)");
         }
