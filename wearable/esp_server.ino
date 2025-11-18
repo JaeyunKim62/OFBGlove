@@ -281,12 +281,12 @@ void handleKeyboardTest() {
     }
     // 다음 버튼 누르기 전 앞의 점을 누르면 buffer 들어간 점들 취소
     else if (serialBuffer.length() > 1) {
-        int newOrder = getDotOrder(serialBuffer[serialBuffer.length() - 1]);
+        char lastchar = serialBuffer[serialBuffer.length() - 1];
+        int newOrder = getDotOrder(lastchar);
         
         int existingOrder = getDotOrder(serialBuffer[serialBuffer.length() - 2]);
         if (existingOrder > 0 && newOrder < existingOrder) {
             // 새 점이 기존 점보다 앞에 있으면 버퍼 초기화
-            char lastchar = serialBuffer[serialBuffer.length() - 1];
             serialBuffer = String(lastchar);
             Serial.println("[INFO] Buffer cleared (earlier dot pressed)");
             Serial.println(serialBuffer);
