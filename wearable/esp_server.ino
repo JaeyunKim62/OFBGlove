@@ -255,7 +255,9 @@ void handleKeyboardTest() {
         //     serialBuffer = "";
         //     Serial.println("[INFO] Buffer cleared (duplicate input)");
         // }
-
+        if (key == '\n' || key == '\r') {
+            continue;
+        }
         if (getDotOrder(key) == 0) {
             serialBuffer = "";
             Serial.println("[INFO] Buffer cleared (invalid input)");
