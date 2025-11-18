@@ -229,7 +229,70 @@ void handleSerialInput() {
         }
     }
 }
+void handleKeyboardTest() {
+    static String serialBuffer;
+    
+    // 키보드에서 점자 점대로 입력받아서 진동 울림
+    // cbafed 순으로 123456점
+    // 다음 버튼(de(65)) 들어오면 하나의 점자로 만듬
+    // 다음 버튼 누르기 전 앞의 점을 누르면 buffer 들어간 점들 취소
 
+    auto getDotOrder = [](char c) -> int {
+        if (c == 'c') return 1;
+        if (c == 'b') return 2;
+        if (c == 'a') return 3;
+        if (c == 'f') return 4;
+        if (c == 'e') return 5;
+        if (c == 'd') return 6;
+        return 0;  // 알 수 없는 문자
+    };
+
+    while (Serial.available()) {
+        char key = Serial.read();
+
+        // 중복 입력 체크: 이미 입력된 점을 다시 누르면 버퍼 초기화
+        // if (serialBuffer.indexOf(key) != -1) {
+        //     serialBuffer = "";
+        //     Serial.println("[INFO] Buffer cleared (duplicate input)");
+        // }
+        
+        serialBuffer += key;
+        Serial.println(serialBuffer);
+    }
+    if (serialBuffer.endsWith("de")) {
+        uint8_t dots = 0;
+        for (int i = 0; i < serialBuffer.length() - 2; i++) {
+            if (serialBuffer[i] == 'c') {
+                dots |= 1 << 0;
+            } else if (serialBuffer[i] == 'b') {
+                dots |= 1 << 1;
+            } else if (serialBuffer[i] == 'a') {
+                dots |= 1 << 2;
+            } else if (serialBuffer[i] == 'f') {
+                dots |= 1 << 3;
+            } else if (serialBuffer[i] == 'e') {
+                dots |= 1 << 4;
+            } else if (serialBuffer[i] == 'd') {
+                dots |= 1 << 5;
+            }
+        }
+        applyBraillePattern(dots);
+        serialBuffer = "";
+    }
+    // 다음 버튼 누르기 전 앞의 점을 누르면 buffer 들어간 점들 취소
+    else if (serialBuffer.length() > 1) {
+        int newOrder = getDotOrder(serialBuffer[serialBuffer.length() - 1]);
+        
+        int existingOrder = getDotOrder(serialBuffer[serialBuffer.length() - 2]);
+        if (existingOrder > 0 && newOrder < existingOrder) {
+            // 새 점이 기존 점보다 앞에 있으면 버퍼 초기화
+            char lastchar = serialBuffer[serialBuffer.length() - 1];
+            serialBuffer = String(lastchar);
+            Serial.println("[INFO] Buffer cleared (earlier dot pressed)");
+            Serial.println(serialBuffer);
+        }
+    }
+}
 void handleWordSequence(uint8_t* data, size_t len) {
     if (len < 1) {
         Serial.println("[ERROR] WORD_SEQUENCE: Invalid length");
@@ -381,4 +444,5 @@ void loop() {
     }
 
     handleSerialInput();
+    handleKeyboardTest();
 }
