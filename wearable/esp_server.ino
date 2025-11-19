@@ -40,6 +40,13 @@ size_t  inputBufferIndex = 0;
 bool motorBusReady = false;
 bool motorActiveState[BRAILLE_DOT_COUNT] = { false, false, false, false, false, false };
 
+struct MotorStatusFrame {
+    uint8_t statusBits;
+    uint8_t buttonState;
+    uint8_t lastError;
+    uint8_t lastPatternLen;
+};
+
 enum MessageType : uint8_t {
     MSG_WORD_SEQUENCE      = 0x08,
     MSG_CLEAR              = 0x04,
@@ -190,13 +197,6 @@ void handleConfigSet(uint8_t* data, size_t len) {
             Serial.printf("[WARN] Unknown config param: 0x%02X\n", paramType);
     }
 }
-
-struct MotorStatusFrame {
-    uint8_t statusBits;
-    uint8_t buttonState;
-    uint8_t lastError;
-    uint8_t lastPatternLen;
-};
 
 bool motorSendCommand(uint8_t address, uint8_t cmd, const uint8_t* payload, uint8_t len) {
     if (!motorBusReady) {
