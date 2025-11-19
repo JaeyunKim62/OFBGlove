@@ -40,6 +40,18 @@ size_t  inputBufferIndex = 0;
 bool motorBusReady = false;
 bool motorActiveState[BRAILLE_DOT_COUNT] = { false, false, false, false, false, false };
 
+enum MessageType : uint8_t {
+    MSG_WORD_SEQUENCE      = 0x08,
+    MSG_CLEAR              = 0x04,
+    MSG_WORD_SEPARATOR     = 0x05,
+    MSG_SENTENCE_SEPARATOR = 0x06,  
+    MSG_BRAILLE_SEPARATOR  = 0x07,
+    MSG_BUTTON_PRESS       = 0x09,
+    MSG_CONFIG_SET        = 0x0A,  // 설정 변경
+    MSG_CONFIG_GET         = 0x0B,  // 설정 조회
+    MSG_CONFIG_RESET       = 0x0C   // 설정 초기화
+};
+
 struct VibrationConfig {
     uint8_t waveformId;        // 진동 패턴 ID (0-255)
     uint8_t patternLength;     // 패턴 길이 (1-8)
@@ -312,18 +324,6 @@ void motorInit() {
 
     delay(1000);
 }
-
-enum MessageType : uint8_t {
-    MSG_WORD_SEQUENCE      = 0x08,
-    MSG_CLEAR              = 0x04,
-    MSG_WORD_SEPARATOR     = 0x05,
-    MSG_SENTENCE_SEPARATOR = 0x06,  
-    MSG_BRAILLE_SEPARATOR  = 0x07,
-    MSG_BUTTON_PRESS       = 0x09,
-    MSG_CONFIG_SET        = 0x0A,  // 설정 변경
-    MSG_CONFIG_GET         = 0x0B,  // 설정 조회
-    MSG_CONFIG_RESET       = 0x0C   // 설정 초기화
-};
 
 uint8_t calculateChecksum(const uint8_t* data, size_t len) {
     uint8_t sum = 0;
@@ -834,11 +834,11 @@ void loop() {
     }
 
     // 주기적으로 버튼 상태 체크
-    unsigned long currentTime = millis();
-    if (currentTime - lastButtonCheckTime >= BUTTON_CHECK_INTERVAL_MS) {
-        checkAndSendButtonPress();
-        lastButtonCheckTime = currentTime;
-    }
+    // unsigned long currentTime = millis();
+    // if (currentTime - lastButtonCheckTime >= BUTTON_CHECK_INTERVAL_MS) {
+    //     checkAndSendButtonPress();
+    //     lastButtonCheckTime = currentTime;
+    // }
 
     // handleSerialInput();
     // handleKeyboardTest();
