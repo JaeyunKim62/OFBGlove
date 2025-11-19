@@ -215,38 +215,38 @@ unsigned long lastButtonCheckTime = 0;
 const unsigned long BUTTON_CHECK_INTERVAL_MS = 50;  // 50ms마다 체크
 
 // 버튼 상태를 읽고 눌림을 감지하는 함수
-void checkAndSendButtonPress() {
-    if (!motorBusReady || !clientConnected || !client.connected()) {
-        return;
-    }
+// void checkAndSendButtonPress() {
+//     if (!motorBusReady || !clientConnected || !client.connected()) {
+//         return;
+//     }
 
-    uint8_t currentButtonState = 0;
-    bool anyButtonPressed = false;
+//     uint8_t currentButtonState = 0;
+//     bool anyButtonPressed = false;
 
-    // 모든 모듈의 버튼 상태 읽기
-    for (uint8_t i = 0; i < BRAILLE_DOT_COUNT; ++i) {
-        MotorStatusFrame status{};
-        if (motorReadStatus(BRAILLE_DOT_ADDRESSES[i], status)) {
-            // buttonState가 0x01이면 눌림, STATUS_BITS의 bit3도 확인 가능
-            if (status.buttonState == 0x01 || (status.statusBits & 0x08) != 0) {
-                currentButtonState |= (1U << i);  // i번째 비트 설정
-                anyButtonPressed = true;
-            }
-        }
-    }
+//     // 모든 모듈의 버튼 상태 읽기
+//     for (uint8_t i = 0; i < BRAILLE_DOT_COUNT; ++i) {
+//         MotorStatusFrame status{};
+//         if (motorReadStatus(BRAILLE_DOT_ADDRESSES[i], status)) {
+//             // buttonState가 0x01이면 눌림, STATUS_BITS의 bit3도 확인 가능
+//             if (status.buttonState == 0x01 || (status.statusBits & 0x08) != 0) {
+//                 currentButtonState |= (1U << i);  // i번째 비트 설정
+//                 anyButtonPressed = true;
+//             }
+//         }
+//     }
 
-    // 이전 상태와 다르고, 현재 눌린 버튼이 있으면 전송
-    if (currentButtonState != lastButtonState && anyButtonPressed) {
-        sendButtonPressToClient(currentButtonState);
-        lastButtonState = currentButtonState;
-    } else if (currentButtonState == 0 && lastButtonState != 0) {
-        // 모든 버튼이 떼어진 경우 상태 업데이트만
-        lastButtonState = 0;
-    }
-}
+//     // 이전 상태와 다르고, 현재 눌린 버튼이 있으면 전송
+//     if (currentButtonState != lastButtonState && anyButtonPressed) {
+//         sendButtonPressToClient(currentButtonState);
+//         lastButtonState = currentButtonState;
+//     } else if (currentButtonState == 0 && lastButtonState != 0) {
+//         // 모든 버튼이 떼어진 경우 상태 업데이트만
+//         lastButtonState = 0;
+//     }
+// }
 
 // 버튼 눌림을 클라이언트에 전송하는 함수
-void sendButtonPressToClient(uint8_t dotsByte) {
+void sendBraillePatternToClient(uint8_t dotsByte) {
     if (!clientConnected || !client.connected()) {
         Serial.println("[WARN] No TCP client connected for button press");
         return;
@@ -271,6 +271,57 @@ void sendButtonPressToClient(uint8_t dotsByte) {
         }
     }
     Serial.println(")");
+}
+
+void handleButtonToClient() {
+    static uint8_t composingMask = 0;     // 현재 조합 중인 점자 패턴
+    static uint8_t lastPhysicalMask = 0;  // 직전 물리 버튼 상태
+    static unsigned long lastPoll = 0;
+    const unsigned long POLL_INTERVAL_MS = 30;
+    const uint8_t NEXT_BUTTON_START = (1U << 4); // 예: 5번 버튼을 커밋 키로 사용 (필요에 맞게 수정)
+    const uint8_t NEXT_BUTTON_END = (1U << 5); // 예: 6번 버튼을 취소 키로 사용 (필요에 맞게 수정)
+
+    if (!motorBusReady) return;
+    
+    unsigned long now = millis();
+    if (now - lastPoll < POLL_INTERVAL_MS) return;
+    lastPoll = now;
+
+    // 1) 물리 버튼 상태 읽기
+    uint8_t currentMask = 0;
+    for (uint8_t i = 0; i < BRAILLE_DOT_COUNT; ++i) {
+        MotorStatusFrame status{};
+        if (!motorReadStatus(BRAILLE_DOT_ADDRESSES[i], status)) continue;
+
+        bool pressed = (status.buttonState == 0x01) || ((status.statusBits & 0x08) != 0);
+        if (pressed) {
+            currentMask |= (1U << i);
+        }
+    }
+
+    if (currentMask == lastPhysicalMask) return; // 변화 없음
+    lastPhysicalMask = currentMask;
+
+    // 2) 커밋 버튼이 눌렸을 때
+    bool startButtonPressed = (composingMask & NEXT_BUTTON_START) != 0;
+    bool endButtonPressed = (currentMask & NEXT_BUTTON_END) != 0;
+    if (startButtonPressed && endButtonPressed) {
+        if (composingMask != 0) {
+            composingMask = composingMask[composingMask.length() - 1];
+            Serial.printf("[BUTTON_TEST] commit mask=0x%02X\n", composingMask);
+            sendBraillePatternToClient(composingMask);
+            composingMask = 0;
+        }
+        return;
+    }
+
+    // 3) 점자 버튼 입력 누적
+    if (currentMask != 0) {
+        composingMask |= currentMask;
+        Serial.printf("[BUTTON_TEST] composing mask=0x%02X\n", composingMask);
+    } else if (composingMask != 0) {
+        Serial.println("[BUTTON_TEST] waiting for commit key (mask held)");
+    }
 }
 
 void handleSerialInput() {
@@ -570,6 +621,7 @@ void setup() {
 void loop() {
     handleKeyboardTest();
     handleButtonIOTest();
+    handleButtonToClient();
     if (!clientConnected) {
         client = server.available();
         if (client) {
