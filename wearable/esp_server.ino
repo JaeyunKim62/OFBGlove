@@ -40,6 +40,143 @@ size_t  inputBufferIndex = 0;
 bool motorBusReady = false;
 bool motorActiveState[BRAILLE_DOT_COUNT] = { false, false, false, false, false, false };
 
+struct VibrationConfig {
+    uint8_t waveformId;        // 진동 패턴 ID (0-255)
+    uint8_t patternLength;     // 패턴 길이 (1-8)
+    uint16_t holdDuration;     // 점자 패턴 유지 시간 (ms)
+    uint16_t intervalDuration; // 패턴 사이 간격 (ms)
+    uint8_t intensity;         // 진동 세기 (0-100, 실제 적용은 waveformId로)
+    uint8_t speed;             // 속도 모드 (0=SLOW, 1=NORMAL, 2=FAST)
+    uint8_t mode;              // 동작 모드 (0=NORMAL, 1=TEST, 2=DEBUG)
+    uint8_t flags;             // 기타 플래그
+};
+
+VibrationConfig currentConfig = {
+    .waveformId = DEFAULT_WAVEFORM_ID,
+    .patternLength = DEFAULT_PATTERN_LEN,
+    .holdDuration = BRAILLE_PATTERN_HOLD_MS,
+    .intervalDuration = 200,
+    .intensity = 100,
+    .speed = 1,  // NORMAL
+    .mode = 0,   // NORMAL
+    .flags = 0x00
+};
+
+
+// ========== 설정 적용 함수 ==========
+void applyConfig() {
+    // 속도에 따른 hold duration 업데이트
+    currentConfig.holdDuration = SPEED_HOLD_MS[currentConfig.speed];
+    currentConfig.intervalDuration = SPEED_INTERVAL_MS[currentConfig.speed];
+    
+    Serial.printf("[CONFIG] Applied: waveform=%d speed=%d mode=%d hold=%dms\n",
+                  currentConfig.waveformId, currentConfig.speed, 
+                  currentConfig.mode, currentConfig.holdDuration);
+}
+
+// ========== 설정 조회 함수 ==========
+void handleConfigGet() {
+    if (!clientConnected || !client.connected()) {
+        Serial.println("[WARN] No client for config get");
+        return;
+    }
+    
+    uint8_t payload[11];
+    payload[0] = 0x00;  // response type
+    payload[1] = currentConfig.waveformId;
+    payload[2] = currentConfig.patternLength;
+    payload[3] = currentConfig.holdDuration & 0xFF;
+    payload[4] = (currentConfig.holdDuration >> 8) & 0xFF;
+    payload[5] = currentConfig.intervalDuration & 0xFF;
+    payload[6] = (currentConfig.intervalDuration >> 8) & 0xFF;
+    payload[7] = currentConfig.intensity;
+    payload[8] = currentConfig.speed;
+    payload[9] = currentConfig.mode;
+    payload[10] = currentConfig.flags;
+    
+    uint8_t header[4];
+    header[0] = MSG_CONFIG_GET;
+    header[1] = 11;  // length LSB
+    header[2] = 0;   // length MSB
+    header[3] = calculateChecksum(payload, 11);
+    
+    client.write(header, 4);
+    client.write(payload, 11);
+    client.flush();
+    
+    Serial.println("[CONFIG] Config sent to client");
+}
+
+// ========== 설정 초기화 ==========
+void handleConfigReset() {
+    currentConfig.waveformId = DEFAULT_WAVEFORM_ID;
+    currentConfig.patternLength = DEFAULT_PATTERN_LEN;
+    currentConfig.holdDuration = BRAILLE_PATTERN_HOLD_MS;
+    currentConfig.intervalDuration = 200;
+    currentConfig.intensity = 100;
+    currentConfig.speed = 1;
+    currentConfig.mode = 0;
+    currentConfig.flags = 0x00;
+    applyConfig();
+    Serial.println("[CONFIG] Reset to defaults");
+}
+
+
+// ========== 설정 변경 함수 (TCP 메시지) ==========
+void handleConfigSet(uint8_t* data, size_t len) {
+    if (len < 1) {
+        Serial.println("[ERROR] CONFIG_SET: Invalid length");
+        return;
+    }
+    
+    uint8_t paramType = data[0];
+    
+    switch (paramType) {
+        case 0x01: // waveformId
+            if (len >= 2) {
+                currentConfig.waveformId = data[1];
+                Serial.printf("[CONFIG] waveformId = %d\n", currentConfig.waveformId);
+            }
+            break;
+        case 0x02: // speed
+            if (len >= 2) {
+                if (data[1] <= 2) {
+                    currentConfig.speed = data[1];
+                    applyConfig();
+                }
+            }
+            break;
+        case 0x03: // mode
+            if (len >= 2) {
+                currentConfig.mode = data[1];
+                Serial.printf("[CONFIG] mode = %d\n", currentConfig.mode);
+            }
+            break;
+        case 0x04: // intensity (0-100)
+            if (len >= 2) {
+                currentConfig.intensity = data[1];
+                Serial.printf("[CONFIG] intensity = %d\n", currentConfig.intensity);
+            }
+            break;
+        case 0x05: // 전체 설정 (8 bytes)
+            if (len >= 8) {
+                currentConfig.waveformId = data[1];
+                currentConfig.patternLength = data[2];
+                currentConfig.holdDuration = data[3] | (data[4] << 8);
+                currentConfig.intervalDuration = data[5] | (data[6] << 8);
+                currentConfig.intensity = data[7];
+                currentConfig.speed = data[8];
+                currentConfig.mode = data[9];
+                currentConfig.flags = data[10];
+                applyConfig();
+                Serial.println("[CONFIG] Full config updated");
+            }
+            break;
+        default:
+            Serial.printf("[WARN] Unknown config param: 0x%02X\n", paramType);
+    }
+}
+
 struct MotorStatusFrame {
     uint8_t statusBits;
     uint8_t buttonState;
@@ -178,7 +315,10 @@ enum MessageType : uint8_t {
     MSG_WORD_SEPARATOR     = 0x05,
     MSG_SENTENCE_SEPARATOR = 0x06,  
     MSG_BRAILLE_SEPARATOR  = 0x07,
-    MSG_BUTTON_PRESS       = 0x09  // 버튼 눌림 메시지 타입 추가
+    MSG_BUTTON_PRESS       = 0x09,
+    MSG_CONFIG_SET        = 0x0A,  // 설정 변경
+    MSG_CONFIG_GET         = 0x0B,  // 설정 조회
+    MSG_CONFIG_RESET       = 0x0C   // 설정 초기화
 };
 
 uint8_t calculateChecksum(const uint8_t* data, size_t len) {
