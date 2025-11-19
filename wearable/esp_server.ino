@@ -62,6 +62,8 @@ VibrationConfig currentConfig = {
     .flags = 0x00
 };
 
+const uint16_t SPEED_HOLD_MS[3] = {1500, 1000, 500};      // SLOW, NORMAL, FAST
+const uint16_t SPEED_INTERVAL_MS[3] = {2500, 1500, 1000};    // SLOW, NORMAL, FAST
 
 // ========== 설정 적용 함수 ==========
 void applyConfig() {
@@ -261,13 +263,15 @@ void stopAllMotors(bool force = false) {
 }
 
 void applyBraillePattern(uint8_t dotsByte) {
-    const uint8_t pattern[DEFAULT_PATTERN_LEN] = { DEFAULT_WAVEFORM_ID };
-
+    uint8_t pattern[currentConfig.patternLength];
+    for (uint8_t i = 0; i < currentConfig.patternLength; ++i) {
+        pattern[i] = currentConfig.waveformId;
+    }
     for (uint8_t dot = 0; dot < BRAILLE_DOT_COUNT; ++dot) {
         bool shouldActivate = (dotsByte & (1U << dot)) != 0;
 
         if (shouldActivate) {
-            if (motorPlayPattern(dot, pattern, DEFAULT_PATTERN_LEN)) {
+            if (motorPlayPattern(dot, pattern, currentConfig.patternLength)) {
                 motorActiveState[dot] = true;
             }
         } else if (motorActiveState[dot]) {
@@ -680,7 +684,10 @@ void handleWordSequence(uint8_t* data, size_t len) {
         Serial.printf("  pattern[%u]=0x%02X\n", i, dots);
         applyBraillePattern(dots);
         logMotorStatuses();
-        delay(BRAILLE_PATTERN_HOLD_MS);
+        delay(currentConfig.holdDuration);
+        if (i < count - 1) {
+            delay(currentConfig.intervalDuration);
+        }
     }
 
     stopAllMotors();
@@ -711,6 +718,9 @@ void handleReceivedMessage(uint8_t type, uint8_t* data, size_t len) {
         case MSG_WORD_SEPARATOR:     handleWordSeparator(); break;
         case MSG_SENTENCE_SEPARATOR: handleSentenceSeparator(); break;
         case MSG_BRAILLE_SEPARATOR:  handleBrailleSeparator(); break;
+        case MSG_CONFIG_SET:         handleConfigSet(data, len); break;
+        case MSG_CONFIG_GET:         handleConfigGet(); break;
+        case MSG_CONFIG_RESET:       handleConfigReset(); break;
         default:                     Serial.printf("[WARN] Unknown type 0x%02X\n", type);
     }
 }
