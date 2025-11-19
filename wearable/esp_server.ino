@@ -168,6 +168,8 @@ void motorInit() {
                   MOTOR_I2C_SDA_PIN, MOTOR_I2C_SCL_PIN, MOTOR_I2C_CLOCK_HZ);
 
     stopAllMotors(true);
+
+    delay(1000);
 }
 
 enum MessageType : uint8_t {
@@ -207,6 +209,28 @@ void sendPatternFromSerial(uint8_t dotsByte) {
 
     applyBraillePattern(dotsByte);
     logMotorStatuses();
+}
+
+void playSequentialVibration() {
+    Serial.println("[INFO] Playing sequential vibration (dots 1-6)");
+    const uint8_t pattern[DEFAULT_PATTERN_LEN] = { DEFAULT_WAVEFORM_ID };
+    const uint16_t VIBRATION_DURATION_MS = 300;  // 각 진동 지속 시간
+    const uint16_t VIBRATION_INTERVAL_MS = 200;  // 진동 사이 간격
+    
+    for (uint8_t i = 0; i < BRAILLE_DOT_COUNT; ++i) {
+        Serial.printf("[INFO] Vibrating dot %d\n", i + 1);
+        if (motorPlayPattern(i, pattern, DEFAULT_PATTERN_LEN)) {
+            motorActiveState[i] = true;
+            delay(VIBRATION_DURATION_MS);
+            if (motorStop(i)) {
+                motorActiveState[i] = false;
+            }
+            if (i < BRAILLE_DOT_COUNT - 1) {  // 마지막 점이 아니면 간격 추가
+                delay(VIBRATION_INTERVAL_MS);
+            }
+        }
+    }
+    Serial.println("[INFO] Sequential vibration complete");
 }
 
 // 버튼 상태 추적을 위한 변수 추가
@@ -599,6 +623,8 @@ void startAccessPoint() {
         Serial.println("AP started");
         Serial.print("SSID: "); Serial.println(apSsid);
         Serial.print("AP IP: "); Serial.println(ip);
+        delay(1000);
+        playSequentialVibration();
     } else {
         Serial.println("[ERROR] Failed to start AP");
     }
@@ -612,10 +638,12 @@ void setup() {
     Serial.println(" ESP32 AP TCP Receiver");
     Serial.println("==========================");
 
+    motorInit();
+    playSequentialVibration();
+
     startAccessPoint();
     server.begin();
     Serial.printf("TCP server active on %d\n", TCP_PORT);
-    motorInit();
 }
 
 void loop() {
