@@ -53,7 +53,7 @@ enum MessageType : uint8_t {
     MSG_WORD_SEPARATOR     = 0x05,
     MSG_SENTENCE_SEPARATOR = 0x06,  
     MSG_BRAILLE_SEPARATOR  = 0x07,
-    MSG_BUTTON_PRESS       = 0x09,
+    MSG_PATTERN_COMPLETE   = 0x03,
     MSG_CONFIG_SET        = 0x0A,  // 설정 변경
     MSG_CONFIG_GET         = 0x0B,  // 설정 조회
     MSG_CONFIG_RESET       = 0x0C   // 설정 초기화
@@ -421,7 +421,7 @@ void sendBraillePatternToClient(uint8_t dotsByte) {
     }
 
     uint8_t header[4];
-    header[0] = MSG_BUTTON_PRESS;    // 메시지 타입
+    header[0] = MSG_PATTERN_COMPLETE;    // 메시지 타입
     header[1] = 0x01;                // data length LSB (1 byte)
     header[2] = 0x00;                // data length MSB
     header[3] = dotsByte;            // checksum = payload XOR
