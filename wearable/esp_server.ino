@@ -442,12 +442,15 @@ void sendBraillePatternToClient(uint8_t dotsByte) {
 }
 
 void handleButtonToClient() {
-    static uint8_t composingMask = 0;     // 현재 조합 중인 점자 패턴
-    static uint8_t lastPhysicalMask = 0;  // 직전 물리 버튼 상태
+    static uint8_t composingMask = 0;
+    static uint8_t lastPhysicalMask = 0;
     static unsigned long lastPoll = 0;
+    static unsigned long button6PressStartTime = 0;
+    static bool button6OnlyPressed = false;
+    static bool wasButton6OnlyPressed = false;
     const unsigned long POLL_INTERVAL_MS = 30;
-    const uint8_t NEXT_BUTTON_START = (1U << 4); // 예: 5번 버튼을 커밋 키로 사용 (필요에 맞게 수정)
-    const uint8_t NEXT_BUTTON_END = (1U << 5); // 예: 6번 버튼을 취소 키로 사용 (필요에 맞게 수정)
+    const unsigned long LONG_PRESS_MS = 1200;
+    const uint8_t BUTTON_6_MASK = (1U << 5);
 
     if (!motorBusReady) return;
     
@@ -455,41 +458,56 @@ void handleButtonToClient() {
     if (now - lastPoll < POLL_INTERVAL_MS) return;
     lastPoll = now;
 
-    // 1) 물리 버튼 상태 읽기
+    // 버튼 상태 읽기
     uint8_t currentMask = 0;
     for (uint8_t i = 0; i < BRAILLE_DOT_COUNT; ++i) {
         MotorStatusFrame status{};
         if (!motorReadStatus(BRAILLE_DOT_ADDRESSES[i], status)) continue;
-
+        
         bool pressed = (status.buttonState == 0x01) || ((status.statusBits & 0x08) != 0);
         if (pressed) {
             currentMask |= (1U << i);
         }
     }
 
-    if (currentMask == lastPhysicalMask) return; // 변화 없음
-    lastPhysicalMask = currentMask;
+    bool button6Pressed = (currentMask & BUTTON_6_MASK) != 0;
+    bool otherButtonsPressed = (currentMask & ~BUTTON_6_MASK) != 0;
+    button6OnlyPressed = button6Pressed && !otherButtonsPressed;
+    bool stateChanged = (currentMask != lastPhysicalMask);
+    bool allReleased = (currentMask == 0);
 
-    // 2) 커밋 버튼이 눌렸을 때
-    bool startButtonPressed = (composingMask & NEXT_BUTTON_START) != 0;
-    bool endButtonPressed = (currentMask & NEXT_BUTTON_END) != 0;
-    if (startButtonPressed && endButtonPressed) {
-        if (composingMask != 0) {
-            composingMask = composingMask[composingMask.length() - 1];
-            Serial.printf("[BUTTON_TEST] commit mask=0x%02X\n", composingMask);
+    if (stateChanged) {
+        // 점자 입력 (6번 포함 가능)
+        if (currentMask != 0 && !button6OnlyPressed) {
+            composingMask |= currentMask;
+            button6PressStartTime = 0;
+            Serial.printf("[BUTTON] Input: mask=0x%02X, composing=0x%02X\n", 
+                         currentMask, composingMask);
+        }
+        // 6번만 단독으로 눌림
+        else if (button6OnlyPressed && !wasButton6OnlyPressed) {
+            button6PressStartTime = now;
+            Serial.println("[BUTTON] Button 6 only (long-press to commit)");
+        }
+        // 모든 버튼이 떼어짐
+        else if (allReleased) {
+            button6PressStartTime = 0;
+        }
+    }
+
+    // 롱클릭 커밋
+    if (button6OnlyPressed && button6PressStartTime > 0 && composingMask != 0) {
+        unsigned long pressDuration = now - button6PressStartTime;
+        if (pressDuration >= LONG_PRESS_MS) {
+            Serial.printf("[BUTTON] Long-press commit: mask=0x%02X\n", composingMask);
             sendBraillePatternToClient(composingMask);
             composingMask = 0;
+            button6PressStartTime = 0;
         }
-        return;
     }
 
-    // 3) 점자 버튼 입력 누적
-    if (currentMask != 0) {
-        composingMask |= currentMask;
-        Serial.printf("[BUTTON_TEST] composing mask=0x%02X\n", composingMask);
-    } else if (composingMask != 0) {
-        Serial.println("[BUTTON_TEST] waiting for commit key (mask held)");
-    }
+    wasButton6OnlyPressed = button6OnlyPressed;
+    lastPhysicalMask = currentMask;
 }
 
 void handleSerialInput() {
@@ -622,9 +640,12 @@ void handleButtonIOTest() {
     static uint8_t composingMask = 0;     // 현재 조합 중인 점자 패턴
     static uint8_t lastPhysicalMask = 0;  // 직전 물리 버튼 상태
     static unsigned long lastPoll = 0;
+    static unsigned long button6PressStartTime = 0;  // 6번 버튼 롱클릭 시작 시간
+    static bool button6OnlyPressed = false;  // 6번만 눌려있는지
+    static bool wasButton6OnlyPressed = false;
     const unsigned long POLL_INTERVAL_MS = 30;
-    const uint8_t NEXT_BUTTON_START = (1U << 4); // 예: 5번 버튼을 커밋 키로 사용 (필요에 맞게 수정)
-    const uint8_t NEXT_BUTTON_END = (1U << 5); // 예: 6번 버튼을 취소 키로 사용 (필요에 맞게 수정)
+    const unsigned long LONG_PRESS_MS = 1200;  // 1.2초 롱클릭
+    const uint8_t BUTTON_6_MASK = (1U << 5);  // 6번 버튼
 
     if (!motorBusReady) return;
     
@@ -644,29 +665,49 @@ void handleButtonIOTest() {
         }
     }
 
-    if (currentMask == lastPhysicalMask) return; // 변화 없음
-    lastPhysicalMask = currentMask;
+    // 2) 6번 버튼 상태 분석
+    bool button6Pressed = (currentMask & BUTTON_6_MASK) != 0;
+    bool otherButtonsPressed = (currentMask & ~BUTTON_6_MASK) != 0;  // 1-5번 중 하나라도 눌림
+    button6OnlyPressed = button6Pressed && !otherButtonsPressed;
+    
+    bool stateChanged = (currentMask != lastPhysicalMask);
+    bool allReleased = (currentMask == 0);
 
-    // 2) 커밋 버튼이 눌렸을 때
-    bool startButtonPressed = (composingMask & NEXT_BUTTON_START) != 0;
-    bool endButtonPressed = (currentMask & NEXT_BUTTON_END) != 0;
-    if (startButtonPressed && endButtonPressed) {
-        if (composingMask != 0) {
-            composingMask = composingMask[composingMask.length() - 1];
-            Serial.printf("[BUTTON_TEST] commit mask=0x%02X\n", composingMask);
+    // 3) 버튼 상태 변화 처리
+    if (stateChanged) {
+        // 점자 입력 (6번 포함 가능)
+        if (currentMask != 0 && !button6OnlyPressed) {
+            composingMask |= currentMask;
+            button6PressStartTime = 0;  // 롱클릭 타이머 리셋
+            Serial.printf("[BUTTON_TEST] Input: mask=0x%02X, composing=0x%02X\n", 
+                         currentMask, composingMask);
+        }
+        // 6번만 단독으로 눌림 → 롱클릭 시작
+        else if (button6OnlyPressed && !wasButton6OnlyPressed) {
+            button6PressStartTime = now;
+            Serial.println("[BUTTON_TEST] Button 6 only (long-press to commit)");
+        }
+        // 모든 버튼이 떼어짐
+        else if (allReleased) {
+            button6PressStartTime = 0;  // 롱클릭 타이머 리셋
+        }
+    }
+
+    // 4) 6번 단독 롱클릭 감지 (커밋)
+    if (button6OnlyPressed && button6PressStartTime > 0 && composingMask != 0) {
+        unsigned long pressDuration = now - button6PressStartTime;
+        
+        if (pressDuration >= LONG_PRESS_MS) {
+            Serial.printf("[BUTTON_TEST] Long-press commit: mask=0x%02X (held for %lums)\n", 
+                         composingMask, pressDuration);
             applyBraillePattern(composingMask);
             composingMask = 0;
+            button6PressStartTime = 0;  // 리셋
         }
-        return;
     }
 
-    // 3) 점자 버튼 입력 누적
-    if (currentMask != 0) {
-        composingMask |= currentMask;
-        Serial.printf("[BUTTON_TEST] composing mask=0x%02X\n", composingMask);
-    } else if (composingMask != 0) {
-        Serial.println("[BUTTON_TEST] waiting for commit key (mask held)");
-    }
+    wasButton6OnlyPressed = button6OnlyPressed;
+    lastPhysicalMask = currentMask;
 }
 void handleWordSequence(uint8_t* data, size_t len) {
     if (len < 1) {
