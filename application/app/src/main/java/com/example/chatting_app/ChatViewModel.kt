@@ -50,6 +50,8 @@ class ChatViewModel : ViewModel() {
     
     private val _isTtsReady = MutableStateFlow(false)
     val isTtsReady: StateFlow<Boolean> = _isTtsReady.asStateFlow()
+    private val brailleTtsBuffer = StringBuilder()
+    private val brailleFlushPattern: Byte = 0x10
     
     // Permission state
     private val _hasRecordAudioPermission = MutableStateFlow(false)
@@ -1349,6 +1351,12 @@ class ChatViewModel : ViewModel() {
      */
     fun handleReceivedDotPattern(dotsByte: Byte) {
         Log.d("ChatViewModel", "DOT_PATTERN 수신됨, 점자→텍스트 변환 시작... (0x${dotsByte.toString(16).padStart(2, '0')})")
+        // ESP에서 공백 대신 0x10 패턴을 보낼 때 버퍼 플러시
+        if (dotsByte == brailleFlushPattern) {
+            Log.d("ChatViewModel", "플러시 패턴 수신 (0x10) - 누적 TTS 실행")
+            flushBrailleTtsBuffer()
+            return
+        }
         
         // 점자 패턴을 텍스트로 변환
         val character = convertBraillePatternToText(dotsByte)
@@ -1365,6 +1373,8 @@ class ChatViewModel : ViewModel() {
             
             // TTS로 읽어주기
             speakText(character)
+            // 단어 단위로 묶어서 TTS
+            bufferBrailleCharacter(character)
             
             Log.d("ChatViewModel", "DOT_PATTERN 처리 완료: '$character'")
         } else {
@@ -1402,6 +1412,28 @@ class ChatViewModel : ViewModel() {
         val result = brailleMap[patternString]
         // 대문자를 소문자로 변환 (공백은 그대로 유지)
         return result?.lowercase()
+    }
+    
+    /**
+     * 점자 문자 버퍼링 (공백 전까지 누적)
+     */
+    private fun bufferBrailleCharacter(character: String) {
+        if (character == " ") {
+            flushBrailleTtsBuffer()
+        } else {
+            brailleTtsBuffer.append(character)
+        }
+    }
+    
+    /**
+     * 누적된 점자 문자를 한 번에 읽어주고 버퍼를 초기화
+     */
+    private fun flushBrailleTtsBuffer() {
+        if (brailleTtsBuffer.isEmpty()) return
+        
+        val bufferedText = brailleTtsBuffer.toString()
+        brailleTtsBuffer.clear()
+        speakText(bufferedText)
     }
     
     /**
