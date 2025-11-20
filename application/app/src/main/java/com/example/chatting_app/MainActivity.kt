@@ -69,7 +69,8 @@ class MainActivity : ComponentActivity() {
  */
 enum class Screen {
     Chat,
-    Learning
+    Learning,
+    Settings
 }
 
 @Composable
@@ -232,11 +233,23 @@ fun ChatApp(
                 // 학습 페이지로 이동
                 onNavigateToLearning = {
                     currentScreen = Screen.Learning
+                },
+                // 설정 페이지로 이동
+                onNavigateToSettings = {
+                    currentScreen = Screen.Settings
                 }
                     )
                 }
                 Screen.Learning -> {
                     LearningScreen(
+                        viewModel = viewModel,
+                        onNavigateBack = {
+                            currentScreen = Screen.Chat
+                        }
+                    )
+                }
+                Screen.Settings -> {
+                    SettingsScreen(
                         viewModel = viewModel,
                         onNavigateBack = {
                             currentScreen = Screen.Chat

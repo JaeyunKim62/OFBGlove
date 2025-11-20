@@ -947,6 +947,30 @@ class ChatViewModel : ViewModel() {
     }
     
     /**
+     * waveformId 설정 전송 (MSG_CONFIG_SET)
+     */
+    fun sendWaveformId(waveformId: Int) {
+        messageManager?.sendWaveformId(waveformId)
+        Log.d("ChatViewModel", "Sent waveformId: $waveformId")
+    }
+    
+    /**
+     * holdDuration 설정 전송 (MSG_CONFIG_SET)
+     */
+    fun sendHoldDuration(holdDuration: Int) {
+        messageManager?.sendHoldDuration(holdDuration)
+        Log.d("ChatViewModel", "Sent holdDuration: $holdDuration ms")
+    }
+    
+    /**
+     * waveformId와 holdDuration을 함께 전송 (MSG_CONFIG_SET)
+     */
+    fun sendWaveformIdAndHoldDuration(waveformId: Int, holdDuration: Int) {
+        messageManager?.sendWaveformIdAndHoldDuration(waveformId, holdDuration)
+        Log.d("ChatViewModel", "Sent waveformId: $waveformId, holdDuration: $holdDuration ms")
+    }
+    
+    /**
      * WiFi 메시지 전송
      */
     fun sendWifiMessage(text: String, braille: String = "") {

@@ -60,7 +60,9 @@ fun ChatScreen(
     onPreviousVoicePattern: () -> Unit = {},
     onExitVoiceMode: () -> Unit = {},
     // 학습 페이지로 이동
-    onNavigateToLearning: () -> Unit = {}
+    onNavigateToLearning: () -> Unit = {},
+    // 설정 페이지로 이동
+    onNavigateToSettings: () -> Unit = {}
 ) {
     // 현재 활성 사용자 - 음성 발화자만 사용 (시청각장애인 비활성화)
     var currentActiveUser by remember { mutableStateOf(ActiveUserType.AUDIO_SPEAKER) }
@@ -132,17 +134,23 @@ fun ChatScreen(
         val verticalPadding = (screenHeight * 0.02f).coerceAtLeast(8.dp).coerceAtMost(20.dp)
         val spacing = (screenWidth * 0.04f).coerceAtLeast(12.dp).coerceAtMost(24.dp)
         
-        // 학습 페이지 버튼
+        // 학습 페이지 및 설정 버튼
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = horizontalPadding, vertical = 8.dp),
-            horizontalArrangement = Arrangement.End
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            Spacer(modifier = Modifier.weight(1f))
             Button(
                 onClick = onNavigateToLearning
             ) {
                 Text("학습 페이지")
+            }
+            Button(
+                onClick = onNavigateToSettings
+            ) {
+                Text("설정")
             }
         }
         

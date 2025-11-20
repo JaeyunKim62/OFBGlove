@@ -17,6 +17,7 @@ class UnifiedMessageManager(private val context: Context) {
     private val wifiBrailleTransmitter = WifiBrailleTransmitter(wifiClient)
     private val wifiTextTransmitter = WifiTextTransmitter(wifiClient)
     private val wifiSettingsTransmitter = WifiSettingsTransmitter(wifiClient)
+    private val wifiConfigTransmitter = WifiConfigTransmitter(wifiClient)
     
     // BLE 매니저 (나중에 구현)
     // private val bleManager = BrailleBleManager(context)
@@ -240,6 +241,42 @@ class UnifiedMessageManager(private val context: Context) {
             ConnectionType.BLE -> {
                 // bleManager.sendMode(mode)
                 Log.d(TAG, "BLE mode not implemented yet")
+            }
+        }
+    }
+    
+    /**
+     * waveformId 설정 전송 (MSG_CONFIG_SET)
+     */
+    fun sendWaveformId(waveformId: Int) {
+        when (currentConnectionType) {
+            ConnectionType.WIFI -> wifiConfigTransmitter.sendWaveformId(waveformId)
+            ConnectionType.BLE -> {
+                Log.d(TAG, "BLE config not implemented yet")
+            }
+        }
+    }
+    
+    /**
+     * holdDuration 설정 전송 (MSG_CONFIG_SET)
+     */
+    fun sendHoldDuration(holdDuration: Int) {
+        when (currentConnectionType) {
+            ConnectionType.WIFI -> wifiConfigTransmitter.sendHoldDuration(holdDuration)
+            ConnectionType.BLE -> {
+                Log.d(TAG, "BLE config not implemented yet")
+            }
+        }
+    }
+    
+    /**
+     * waveformId와 holdDuration을 함께 전송 (MSG_CONFIG_SET)
+     */
+    fun sendWaveformIdAndHoldDuration(waveformId: Int, holdDuration: Int) {
+        when (currentConnectionType) {
+            ConnectionType.WIFI -> wifiConfigTransmitter.sendWaveformIdAndHoldDuration(waveformId, holdDuration)
+            ConnectionType.BLE -> {
+                Log.d(TAG, "BLE config not implemented yet")
             }
         }
     }
