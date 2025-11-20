@@ -177,61 +177,29 @@ web_visualizer/
 
 ### 3. `wearable/` - ESP32 장갑 제어
 
-**Wearable Haptic Module의 하드웨어 구현체**
+**Wearable Haptic Module** 구현체로, 단일 `esp_server.ino` 스케치가 Android 앱과의 WiFi 통신과 모터 제어를 모두 담당합니다.
 
-#### 주요 컴포넌트
-- **ESP32 MCU**: 양방향 통신 및 모터 제어 (WiFi TCP 서버, 포트 8888)
-- **WiFi TCP 서버**: Android 앱과의 실시간 통신 (주 통신 방식)
-- **BLE Server**: Android 앱과의 Bluetooth 통신 (선택사항)
-- **진동 모터**: 6개 점자 점 표현
-- **입력 장치**: 사용자 점자 입력 감지
+#### 주요 파일
+- `esp_server.ino`: ESP32를 AP(`OFBG_AP`) + TCP 서버(포트 8888)로 구성하고, 6개 모터 모듈(I2C 주소 0x01~0x06)에 점자 패턴을 분배합니다. `MSG_WORD_SEQUENCE (0x08)`·구분자·`MSG_CONFIG_SET/GET/RESET` 등 GATT 호환 메시지를 처리합니다.
+- `motor_protocol.md`: 모터 드라이버 명령 프레임과 패턴 코딩 규칙.
+- `README.md`: 하드웨어 구성, 레거시 Python 서버, 디버깅 팁을 정리한 가이드.
 
-#### 통신 구조
-```
-Android 앱 (클라이언트) ←→ ESP32 (서버, 포트 8888)
-```
+#### 핵심 기능
+- ESP32가 WiFi AP 모드에서 Android 앱의 TCP 연결을 받고, 수신한 점자 시퀀스를 각 점(모터)에 `MOTOR_CMD_PLAY_PATTERN`으로 전송합니다.
+- `MSG_CONFIG_SET (0x0A)` payload를 파싱해 waveformId, holdDuration, speed 등을 실시간으로 조정하고, `MSG_CONFIG_GET (0x0B)` 응답으로 현재 설정을 돌려줍니다.
+- `MSG_PATTERN_COMPLETE (0x03)`는 버튼/센서 입력을 앱으로 다시 보고하고, `MSG_CLEAR`, `WORD_SEPARATOR`, `SENTENCE_SEPARATOR` 등도 지원합니다.
+- 모터 버스는 SDA=6, SCL=7, 400 kHz에서 구동되며, 기본 waveformId=47/holdDuration=1000ms가 설정되어 있습니다.
 
-- **ESP32**: 서버 역할 (WiFi TCP 서버, 포트 8888)
-- **Android 앱**: 클라이언트 역할 (ESP32에 연결)
-- **통신 프로토콜**: GATT 호환 바이너리 프로토콜
-  - 앱 → ESP32: `BRAILLE_SEQUENCE` (0x08) - 점자 시퀀스 전송
-  - ESP32 → 앱: `PATTERN_COMPLETE` (0x03) - 점자 패턴 전송
+#### 빠른 시작
+1. Arduino IDE에서 `wearable/esp_server.ino`를 열고 AP SSID/암호 또는 STA 설정을 원하는 네트워크로 변경합니다.
+2. 보드: ESP32 Dev Module, Upload Speed 115200, Flash Size 4MB로 설정 후 업로드합니다.
+3. 시리얼 모니터(115200 baud)에서 IP와 디버그 로그를 확인합니다.
+4. Android 앱 `WifiConnectionCard`에 ESP32 IP를 입력해 연결하고, Chat 화면에서 점자/음성 메시지를 전송합니다.
 
-#### 하드웨어 사양
-```yaml
-MCU: ESP32 (Dual-core, BLE + WiFi)
-진동 모터: 6개 (ERM 또는 LRA)
-전원: 리튬 배터리 (손목 장착형)
-폼팩터: 손가락 끝 노출형 장갑
-통신: BLE 5.0, WiFi 802.11 b/g/n
-```
-
-#### 파일 구조
-```
-wearable/
-├── esp32_tcp_server/           # ESP32 WiFi TCP 서버 (Android 앱용)
-│   └── esp32_tcp_server.ino    # WiFi TCP 서버 코드
-├── esp32_ble_server.ino        # BLE 서버 (Android 앱용, 선택사항)
-├── esp32_web_client.ino        # WiFi 클라이언트 (레거시)
-├── websocket_server.py         # WebSocket 서버 (레거시)
-├── ESP_APP_COMMUNICATION.md    # ESP32와 앱 간 통신 프로토콜 상세 문서
-└── README.md                    # ESP32 장갑 개발 가이드
-```
-
-#### 업로드 방법
-```bash
-# Arduino IDE에서 열기
-1. esp32_tcp_server/esp32_tcp_server.ino 열기
-2. 보드: ESP32 Dev Module 선택
-3. WiFi SSID와 비밀번호 설정
-4. 포트 선택 후 업로드
-5. 시리얼 모니터에서 IP 주소 확인 (115200 baud)
-```
-
-#### 통신 프로토콜
-- **수신 (앱 → ESP32)**: `BRAILLE_SEQUENCE` (0x08) - 점자 시퀀스 수신
-- **송신 (ESP32 → 앱)**: `PATTERN_COMPLETE` (0x03) - 점자 패턴 전송
-- 자세한 프로토콜: [ESP_APP_COMMUNICATION.md](wearable/ESP_APP_COMMUNICATION.md)
+#### 문서
+- [protocol.md](protocol.md) – 전체 메시지 구조와 타입 참조
+- [wearable/README.md](wearable/README.md) – ESP32 장비 세부 가이드
+- [wearable/motor_protocol.md](wearable/motor_protocol.md) – 모터 드라이버 프로토콜 설명
 
 ---
 
@@ -265,53 +233,6 @@ vibration_module/
     └── vibration_module.kicad_pro  # KiCad 프로젝트
 ```
 
----
-
-### 5. `gr_visualizer/` - Python WiFi 서버
-
-**프로토타입 테스트용 Python 서버**
-
-#### 주요 기능
-- **ESP32 호환 프로토콜**: Arduino 서버와 동일한 프로토콜
-- **실시간 로깅**: 모든 메시지와 상태 변화 출력
-- **점자 패턴 표시**: 현재 점자 상태 실시간 확인
-- **체크섬 검증**: 데이터 무결성 보장
-
-#### 파일 구조
-```
-gr_visualizer/
-└── python_wifi_server.py       # Python WiFi 서버
-```
-
----
-
-### 4. `vibration_module/` - 저지연 햅틱 드라이버 보드
-
-**DRV2605 기반 LRA 구동을 전담하는 독립형 모듈**
-
-#### 주요 특징
-- **STM32G031 MCU + DRV2605L** 조합으로 150Hz 대역 LRA를 정밀 제어
-- **전용 전원 레귤레이터(TPS7A20)** 와 오토 캘리브레이션 루틴 포함
-- **I2C 4핀 PicoBlade 커넥터** 통해 외부 호스트와 전원/데이터 공유
-- **테스트 포인트(SWD, NRST, 전원)** 제공으로 펌웨어 디버깅 용이
-
-#### 디렉터리 구성
-```
-vibration_module/
-├── firmware/          # STM32Cube HAL 기반 CMake 프로젝트
-│   ├── Core/          # 애플리케이션 코드 (DRV2605 초기화/트리거)
-│   └── cmake/         # arm-none-eabi toolchain 정의
-└── hardware/          # KiCad 프로젝트 및 JLCPCB 제작 파일
-    ├── vibration_module.kicad_{sch,pcb}  # 회로도/PCB
-    └── jlcpcb/production_files/          # Gerber, BOM, CPL
-```
-
-#### 펌웨어 하이라이트 (`firmware/`)
-- `main.c`에서 DRV2605 오토 캘리브레이션, 파형 시퀀스, 주기적 재생 제어
-- `CMakePresets.json` 사용: Ninja + `arm-none-eabi-gcc` 기반 빌드
-- 세미호스팅(`--specs=rdimon.specs`) 활성화로 UART 없이도 로그 확인 가능
-- I2C1: DRV2605 구동, I2C2/UART2는 향후 센서·호스트 확장용으로 선점
-
 #### 빌드 & 플래시
 ```bash
 cd vibration_module/firmware
@@ -324,11 +245,11 @@ openocd -f interface/stlink.cfg -f target/stm32g0x.cfg \
   -c "program build/Release/vibration_module.elf verify reset exit"
 ```
 
-#### 하드웨어 하이라이트 (`hardware/`)
-- 30×30mm급 단면 배치, 배터리 혹은 3.3V 외부 전원 입력 지원
-- DRV2605 출력은 LRA 구동 FPC/와이어에 바로 연결 가능
-- `BOM-vibration_module.csv`, `CPL-vibration_module.csv` 로 JLCPCB 자동조립 대응
-- `vibration_module-backups/` 폴더에 회로도/PCB 히스토리 백업 포함
+#### 하드웨어/펌웨어 하이라이트
+- **DRV2605L + STM32G031** 조합으로 6개 LRA를 저지연으로 구동하며, TPS7A20 레귤레이터와 오토 캘리브레이션 루틴으로 안정성을 확보했습니다.
+- **확장 커넥터**: I2C 4핀 PicoBlade로 외부 호스트와 전원/데이터를 공유하고, SWD/NRST 테스트 포인트로 펌웨어 디버깅을 지원합니다.
+- **펌웨어 구조**: `main.c`에서 DRV2605 초기화·파형 재생을 담당하고, `CMakePresets.json` 기반 Ninja + `arm-none-eabi-gcc` 빌드/세미호스팅(`--specs=rdimon.specs`)을 제공합니다.
+- **제조 자료**: `hardware/jlcpcb/production_files/`에 Gerber·BOM·CPL이 포함되어 있으며, `hardware/vibration_module-backups/`에 설계 히스토리가 보관되어 있습니다.
 
 ---
 
@@ -339,16 +260,16 @@ openocd -f interface/stlink.cfg -f target/stm32g0x.cfg \
 ```bash
 # 1단계: ESP32 장갑 준비
 cd wearable
-# Arduino IDE에서 esp32_ble_server.ino 업로드
+# Arduino IDE에서 esp_server.ino 업로드
 
 # 2단계: Android 앱 빌드
 cd application
 # Android Studio에서 빌드 및 기기 설치
 
-# 3단계: 앱에서 BLE 연결
+# 3단계: 앱에서 WiFi 연결
 # - 앱 실행
-# - BLE 스캔 및 ESP32 연결
-# - 음성 입력 시작
+# - WifiConnectionCard에서 ESP32 IP 입력 후 연결
+# - 음성/점자 메시지를 전송해 장갑 구동 확인
 
 # 4단계 (선택): 웹 비주얼라이저 병행 실행
 cd web_visualizer
