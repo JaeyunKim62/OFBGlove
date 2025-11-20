@@ -428,8 +428,15 @@ void sendBraillePatternToClient(uint8_t dotsByte) {
 
     uint8_t payload[1] = { dotsByte };
 
-    client.write(header, 4);
-    client.write(payload, 1);
+    // 한 번에 전송하도록 수정
+    uint8_t packet[5];
+    packet[0] = header[0];
+    packet[1] = header[1];
+    packet[2] = header[2];
+    packet[3] = header[3];
+    packet[4] = payload[0];
+
+    client.write(packet, 5);  // 한 번에 전송
     client.flush();
 
     Serial.printf("[TX] BUTTON_PRESS dots=0x%02X (", dotsByte);
