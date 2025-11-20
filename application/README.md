@@ -33,6 +33,9 @@
 - **메시지 타입**: DOT_PATTERN, PATTERN_COMPLETE, BRAILLE_SEQUENCE, WORD_SEPARATOR, SENTENCE_SEPARATOR, BRAILLE_SEPARATOR, TEXT_MESSAGE, SETTINGS, IMAGE_DATA
 - **텍스트 메시지 지원**: 압축된 텍스트 및 점자 메시지 전송
 - **사용자 설정**: 속도, 모드, 구성 전송
+- **WifiConnectionCard UI**: IP 주소를 `SharedPreferences`에 저장하고, 연결/해제, 상태 문구, 로컬 IP 노출을 모두 Compose 카드 한 곳에서 제어
+- **TransmissionMode**: PATTERN(일괄 전송)과 DOT_BY_DOT(개별 점 분할 전송)을 UI 토글 한 번으로 변경
+- **MSG_CONFIG_SET 지원**: `WifiConfigTransmitter`가 waveformId, holdDuration을 안전 범위로 검증한 뒤 `0x0A` 패킷을 생성하여 ESP32 펌웨어와 호환
 - **이미지 수신**: 필담 이미지 수신 및 OCR 처리 지원
 - **통합 메시지 관리자**: WiFi 연결을 위한 중앙화된 통신 관리
 
@@ -47,9 +50,16 @@
 - **Material Design 3**: 현대적이고 접근 가능한 디자인 시스템
 - **반응형 레이아웃**: 다양한 화면 크기에 최적화
 - **접근성 기능**: 시청각장애인을 위한 향상된 접근성
+- **LearningScreen & SettingsScreen**: Chat 화면에서 바로 이동하는 보조 화면 제공 (학습용 샘플, ESP32 설정)
 - **햅틱 피드백**: 점자 입력을 위한 촉각 피드백
 
 ## 🚀 작동 방식
+
+### WiFi 연결 절차
+1. 앱 실행 후 상단 `WifiConnectionCard`에서 톱니바퀴 아이콘을 눌러 서버 IP를 저장합니다 (예: ESP32 AP가 제공하는 172.x.x.x).
+2. `연결` 버튼을 누르면 `UnifiedMessageManager`가 WiFi 클라이언트를 생성하고 `connectionState`를 실시간으로 갱신합니다.
+3. 상태 문구가 `연결됨`으로 전환되면 로컬 IP가 카드에 표시되고, DOT_PATTERN/IMAGE_DATA 콜백이 활성화됩니다.
+4. 연결 이후 TransmissionMode(PATTERN / DOT_BY_DOT)를 선택한 뒤 음성/학습/점자 입력 전송을 시작합니다.
 
 ### 음성 사용자 모드
 1. "음성 사용자" 모드로 전환
@@ -76,6 +86,12 @@
    - "완료" 버튼을 탭하여 패턴 완성
 3. 실시간 문자 인식 및 오디오 피드백
 4. 채팅 시스템과의 원활한 통합
+
+### 학습 페이지 활용
+1. Chat 화면 우측 상단 "학습 페이지" 버튼을 눌러 `LearningScreen`으로 이동합니다.
+2. 제공된 문장/알파벳 버튼을 누르면 `addSightedVoiceMessage()`와 `sendVoiceToWifi()`가 동시에 호출되어 음성 사용자 흐름을 모사합니다.
+3. `Dot 1~6` 항목을 누르면 `sendTestDot()`이 실행되어 특정 점만 활성화한 패턴을 ESP32로 보냅니다.
+4. Toast 메시지로 전송 여부를 즉시 확인한 뒤, 하드웨어 반응 또는 WiFi 로그로 결과를 검증합니다.
 
 ## 🛠️ 기술 아키텍처
 
@@ -116,6 +132,12 @@ app/src/main/java/com/example/chatting_app/
 └── ui/theme/                   # Material Design 3 테마
 ```
 
+## 📺 화면 흐름
+
+- **Chat 화면**: `WifiConnectionCard`로 연결/저장을 제어하고, `TransmissionModeSelector`로 PATTERN/DOT_BY_DOT을 전환하며, OCR 테스트 버튼으로 `test_*.png` 샘플을 즉시 처리합니다. 동일 화면 하단에서 학습/설정 페이지로 이동할 수 있습니다.
+- **Learning 화면**: `LearningExamples` 목록을 `LazyColumn`으로 렌더링하며, 버튼 한 번으로 `addSightedVoiceMessage()`와 `sendVoiceToWifi()`를 호출하거나 dot 테스트(`sendTestDot`)를 실행해 하드웨어 반응을 확인합니다.
+- **Settings 화면**: waveformId(0–255)와 holdDuration(0–65535 ms)을 입력 필드로 받고, 전체 설정/단일 설정 버튼을 분리하여 `WifiConfigTransmitter`로 값을 전송합니다.
+
 ## 🔌 WiFi 통신 프로토콜
 
 ### 프로토콜 개요
@@ -148,6 +170,16 @@ app/src/main/java/com/example/chatting_app/
 - 모든 메시지 타입 참조표
 - 프로토콜 사용 예시
 - 점자 패턴 인코딩 방법
+
+## ⚙️ ESP32 설정 전송 (SettingsScreen)
+
+1. Chat 화면에서 "설정" 버튼을 눌러 `SettingsScreen`으로 이동합니다.
+2. `Waveform ID`(0–255)와 `Hold Duration`(0–65535 ms)을 입력하면 Compose `OutlinedTextField`가 숫자만 허용합니다.
+3. `설정 전송` 버튼은 `sendWaveformIdAndHoldDuration()`을 호출하여 `WifiConfigTransmitter`가 `MSG_CONFIG_SET (0x0A)` 패킷 두 개를 연속 전송합니다.
+   - waveformId → 파라미터 타입 `0x01`
+   - holdDuration → 파라미터 타입 `0x05` (나머지 필드는 기본값: waveformId=47, patternLength=1, interval=200 ms, intensity=100 등)
+4. "Waveform ID만" 또는 "Hold Duration만" 버튼을 쓰면 각각 `sendWaveformId()`와 `sendHoldDuration()`만 실행되어 실험적인 튜닝을 빠르게 반복할 수 있습니다.
+5. 모든 전송 함수는 `UnifiedMessageManager`를 통해 WiFi 연결 여부를 확인하므로, 연결이 끊긴 상태에서는 안전하게 무시됩니다.
 
 ## 📱 설정 및 설치
 
@@ -188,6 +220,11 @@ app/src/main/java/com/example/chatting_app/
 - [x] StateFlow를 사용한 MVVM 아키텍처
 - [x] 포괄적인 오류 처리
 - [x] 런타임 권한 관리
+- [x] WifiConnectionCard 기반 WiFi 연결/해제 + IP 저장
+- [x] TransmissionMode(PATTERN / DOT_BY_DOT) 토글과 개별 점 전송 파이프라인
+- [x] LearningScreen 예시 문장 & Dot 테스트 버튼
+- [x] SettingsScreen + WifiConfigTransmitter를 통한 MSG_CONFIG_SET 전송
+- [x] UnifiedMessageManager의 IMAGE_DATA / PATTERN_COMPLETE 콜백 연동
 
 ### 🔄 진행 중
 
