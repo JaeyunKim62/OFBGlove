@@ -117,6 +117,7 @@ enum class MessageType(val value: Int) {
     BRAILLE_SEQUENCE(0x08),   // 점자 시퀀스 전송 (앱 → ESP32/웹)
     TEXT_MESSAGE(0x10),       // 텍스트 메시지
     SETTINGS(0x20),           // 설정
+    MSG_CONFIG_SET(0x0A),     // 설정 변경 (ESP32)
     
     // 수신 메시지 (ESP32 → 앱)
     STATUS_UPDATE(0x81),      // 상태 업데이트 (0x80 + 0x01)
