@@ -64,7 +64,12 @@ function App() {
   const [gloveScale, setGloveScale] = useState(90); // % (더 크게 표시)
   const [gloveOpacity, setGloveOpacity] = useState(1); // 0~1
   const [gloveRotation, setGloveRotation] = useState(0); // 도 (회전 각도)
-  const [showGloveControls, setShowGloveControls] = useState(false); // 컨트롤 패널 표시 여부
+  const [showGloveControls, setShowGloveControls] = useState(false); // 장갑 컨트롤 패널 표시 여부
+  const [showDotsControls, setShowDotsControls] = useState(false); // 점자 셀 컨트롤 패널 표시 여부
+  const [dotsPosX, setDotsPosX] = useState(0); // 점자 셀 X 위치 (px)
+  const [dotsPosY, setDotsPosY] = useState(0); // 점자 셀 Y 위치 (px)
+  const [dotsScale, setDotsScale] = useState(1); // 점자 셀 크기 (배율)
+  const [dotsRotation, setDotsRotation] = useState(0); // 점자 셀 회전 (도)
   
   const wsServiceRef = useRef<WebSocketService | null>(null);
   const dataCollectorRef = useRef<DataCollector | null>(null);
@@ -1446,6 +1451,23 @@ function App() {
           >
             {showGloveControls ? '▼' : '▶'} 장갑 조정
           </button>
+          <button
+            onClick={() => setShowDotsControls(!showDotsControls)}
+            style={{
+              padding: '8px 16px',
+              background: showDotsControls ? '#28a745' : '#20c997',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '0.9rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 2px 4px rgba(40, 167, 69, 0.2)'
+            }}
+          >
+            {showDotsControls ? '▼' : '▶'} 점자 셀 조정
+          </button>
           <div className="connection-status">
             <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
               {isConnected ? '연결됨' : '연결 끊김'}
@@ -1541,6 +1563,83 @@ function App() {
                 max="180"
                 value={gloveRotation}
                 onChange={(e) => setGloveRotation(Number(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer' }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 점자 셀 조정 컨트롤 - 헤더 아래 고정 위치 */}
+      {showDotsControls && (
+        <div style={{
+          position: 'fixed',
+          top: '80px',
+          right: '20px',
+          width: '350px',
+          padding: '15px',
+          background: 'white',
+          borderRadius: '8px',
+          border: '2px solid #20c997',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          zIndex: 1000,
+          maxHeight: 'calc(100vh - 100px)',
+          overflowY: 'auto'
+        }}>
+          <h4 style={{ margin: '0 0 15px 0', fontSize: '1.1rem', color: '#333', fontWeight: '700' }}>
+            점자 셀 조정
+          </h4>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#666', fontWeight: '600' }}>
+                X 위치: {dotsPosX}px
+              </label>
+              <input
+                type="range"
+                min="-300"
+                max="300"
+                value={dotsPosX}
+                onChange={(e) => setDotsPosX(Number(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#666', fontWeight: '600' }}>
+                Y 위치: {dotsPosY}px
+              </label>
+              <input
+                type="range"
+                min="-300"
+                max="300"
+                value={dotsPosY}
+                onChange={(e) => setDotsPosY(Number(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#666', fontWeight: '600' }}>
+                크기: {dotsScale.toFixed(2)}x
+              </label>
+              <input
+                type="range"
+                min="0.5"
+                max="2"
+                step="0.1"
+                value={dotsScale}
+                onChange={(e) => setDotsScale(Number(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#666', fontWeight: '600' }}>
+                회전: {dotsRotation}°
+              </label>
+              <input
+                type="range"
+                min="-180"
+                max="180"
+                value={dotsRotation}
+                onChange={(e) => setDotsRotation(Number(e.target.value))}
                 style={{ width: '100%', cursor: 'pointer' }}
               />
             </div>
@@ -1735,6 +1834,7 @@ function App() {
               onSendDotPattern={sendDotPatternToTCP}  // 추가
               isEnabled={isInputMode}
               gloveBg={{ posX: glovePosX, posY: glovePosY, scale: gloveScale, opacity: gloveOpacity, rotation: gloveRotation }}
+              dotsTransform={{ posX: dotsPosX, posY: dotsPosY, scale: dotsScale, rotation: dotsRotation }}
               voicePattern={(() => {
                 const isVoiceSource = braillePattern && (braillePattern.source === 'esp32' || braillePattern.source === 'demo');
                 if (isVoiceSource && braillePattern) {
