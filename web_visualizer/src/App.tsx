@@ -63,6 +63,8 @@ function App() {
   const [glovePosY, setGlovePosY] = useState(50); // % (상단 기준)
   const [gloveScale, setGloveScale] = useState(90); // % (더 크게 표시)
   const [gloveOpacity, setGloveOpacity] = useState(1); // 0~1
+  const [gloveRotation, setGloveRotation] = useState(0); // 도 (회전 각도)
+  const [showGloveControls, setShowGloveControls] = useState(false); // 컨트롤 패널 표시 여부
   
   const wsServiceRef = useRef<WebSocketService | null>(null);
   const dataCollectorRef = useRef<DataCollector | null>(null);
@@ -1427,6 +1429,23 @@ function App() {
       <header className="App-header">
         <h1>OFBGlove 점자 시연</h1>
         <div className="header-controls">
+          <button
+            onClick={() => setShowGloveControls(!showGloveControls)}
+            style={{
+              padding: '8px 16px',
+              background: showGloveControls ? '#0056b3' : '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '0.9rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 2px 4px rgba(0, 123, 255, 0.2)'
+            }}
+          >
+            {showGloveControls ? '▼' : '▶'} 장갑 조정
+          </button>
           <div className="connection-status">
             <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
               {isConnected ? '연결됨' : '연결 끊김'}
@@ -1439,6 +1458,95 @@ function App() {
           </div>
         </div>
       </header>
+      
+      {/* 장갑 배경 조정 컨트롤 - 헤더 아래 고정 위치 */}
+      {showGloveControls && (
+        <div style={{
+          position: 'fixed',
+          top: '80px',
+          right: '20px',
+          width: '350px',
+          padding: '15px',
+          background: 'white',
+          borderRadius: '8px',
+          border: '2px solid #007bff',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          zIndex: 1000,
+          maxHeight: 'calc(100vh - 100px)',
+          overflowY: 'auto'
+        }}>
+          <h4 style={{ margin: '0 0 15px 0', fontSize: '1.1rem', color: '#333', fontWeight: '700' }}>
+            장갑 이미지 조정
+          </h4>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#666', fontWeight: '600' }}>
+                X 위치: {glovePosX}%
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={glovePosX}
+                onChange={(e) => setGlovePosX(Number(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#666', fontWeight: '600' }}>
+                Y 위치: {glovePosY}%
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={glovePosY}
+                onChange={(e) => setGlovePosY(Number(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#666', fontWeight: '600' }}>
+                크기: {gloveScale}%
+              </label>
+              <input
+                type="range"
+                min="10"
+                max="200"
+                value={gloveScale}
+                onChange={(e) => setGloveScale(Number(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#666', fontWeight: '600' }}>
+                투명도: {Math.round(gloveOpacity * 100)}%
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={gloveOpacity * 100}
+                onChange={(e) => setGloveOpacity(Number(e.target.value) / 100)}
+                style={{ width: '100%', cursor: 'pointer' }}
+              />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#666', fontWeight: '600' }}>
+                회전: {gloveRotation}°
+              </label>
+              <input
+                type="range"
+                min="-180"
+                max="180"
+                value={gloveRotation}
+                onChange={(e) => setGloveRotation(Number(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer' }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="App-main">
         <div className="braille-panel">
@@ -1626,7 +1734,7 @@ function App() {
               onNextWord={navigateToNextWord}
               onSendDotPattern={sendDotPatternToTCP}  // 추가
               isEnabled={isInputMode}
-              gloveBg={{ posX: glovePosX, posY: glovePosY, scale: gloveScale, opacity: gloveOpacity }}
+              gloveBg={{ posX: glovePosX, posY: glovePosY, scale: gloveScale, opacity: gloveOpacity, rotation: gloveRotation }}
               voicePattern={(() => {
                 const isVoiceSource = braillePattern && (braillePattern.source === 'esp32' || braillePattern.source === 'demo');
                 if (isVoiceSource && braillePattern) {
@@ -1637,7 +1745,6 @@ function App() {
               isWordPlaying={isPlayingWord}
               hasWebInputBuffer={webInputBuffer.length > 0}
             />
-            {/* 배경 조정 컨트롤은 데모에서 숨김 */}
           </div>
         )}
       </main>
