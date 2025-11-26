@@ -650,6 +650,82 @@ function App() {
     return brailleMap[binary] || "?";
   };
 
+  // 문자를 점자 패턴으로 변환하는 함수 (역매핑)
+  const characterToBraillePattern = (char: string): BrailleDot[] => {
+    const charUpper = char.toUpperCase();
+    const brailleMap: { [key: string]: string } = {
+      "A": "100000", "B": "110000", "C": "100100", "D": "100110",
+      "E": "100010", "F": "110100", "G": "110110", "H": "110010",
+      "I": "010100", "J": "010110", "K": "101000", "L": "111000",
+      "M": "101100", "N": "101110", "O": "101010", "P": "111100",
+      "Q": "111110", "R": "111010", "S": "011100", "T": "011110",
+      "U": "101001", "V": "111001", "W": "010111", "X": "101101",
+      "Y": "101111", "Z": "101011", " ": "000000"
+    };
+    
+    const binary = brailleMap[charUpper] || "000000";
+    return binary.split('').map((bit, index) => ({
+      id: index + 1,
+      isActive: bit === '1'
+    }));
+  };
+
+  // 텍스트를 점자 패턴으로 변환하여 순차적으로 표시하는 함수
+  const displayTextAsBraille = (text: string) => {
+    if (!text || text.length === 0) return;
+    
+    // 기존 타이머 클리어
+    if (displayTimeoutRef.current) {
+      clearTimeout(displayTimeoutRef.current);
+      displayTimeoutRef.current = null;
+    }
+    
+    const characters = text.toUpperCase().split('');
+    let currentIndex = 0;
+    const interval = 1000; // 각 문자 표시 간격 (1초)
+    
+    const displayNextCharacter = () => {
+      if (currentIndex >= characters.length) {
+        // 모든 문자 표시 완료 후 마지막에 꺼지기
+        setTimeout(() => {
+          setBraillePattern(null);
+          addLog('info', `테스트 완료: "${text}" 점자 패턴 표시 완료 및 숨김`);
+        }, interval);
+        return;
+      }
+      
+      const char = characters[currentIndex];
+      const pattern = characterToBraillePattern(char);
+      
+      const braillePattern: BraillePattern = {
+        dots: pattern,
+        timestamp: Date.now(),
+        source: 'demo',
+        character: char,
+        binary: pattern.map(d => d.isActive ? '1' : '0').join('')
+      };
+      
+      setBraillePattern(braillePattern);
+      addLog('info', `테스트: "${char}" 점자 패턴 표시 (${currentIndex + 1}/${characters.length})`);
+      
+      currentIndex++;
+      
+      // 다음 문자 표시
+      if (currentIndex < characters.length) {
+        displayTimeoutRef.current = setTimeout(displayNextCharacter, interval);
+      } else {
+        // 마지막 문자 표시 후 꺼지기
+        displayTimeoutRef.current = setTimeout(() => {
+          setBraillePattern(null);
+          addLog('info', `테스트 완료: "${text}" 점자 패턴 표시 완료 및 숨김`);
+        }, interval);
+      }
+    };
+    
+    // 첫 번째 문자 표시 시작
+    displayNextCharacter();
+  };
+
   // 000000 패턴 객체 생성 함수 (구분자용)
   const createSpacePattern = (source: 'esp32' | 'web' | 'demo' = 'esp32'): BraillePattern => {
     return {
@@ -1468,6 +1544,30 @@ function App() {
           >
             {showDotsControls ? '▼' : '▶'} 점자 셀 조정
           </button>
+          <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+            {['A', 'B', 'C', 'HELLO', 'TEST'].map((text) => (
+              <button
+                key={text}
+                onClick={() => displayTextAsBraille(text)}
+                style={{
+                  padding: '6px 12px',
+                  background: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.background = '#5a6268'}
+                onMouseOut={(e) => e.currentTarget.style.background = '#6c757d'}
+              >
+                {text}
+              </button>
+            ))}
+          </div>
           <div className="connection-status">
             <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
               {isConnected ? '연결됨' : '연결 끊김'}
