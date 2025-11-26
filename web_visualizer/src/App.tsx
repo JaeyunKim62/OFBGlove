@@ -70,6 +70,7 @@ function App() {
   const [dotsPosY, setDotsPosY] = useState(0); // 점자 셀 Y 위치 (px)
   const [dotsScale, setDotsScale] = useState(1); // 점자 셀 크기 (배율)
   const [dotsRotation, setDotsRotation] = useState(0); // 점자 셀 회전 (도)
+  const [useDotByDot, setUseDotByDot] = useState(true); // 점바이점 출력 모드 (true: 점바이점, false: 일반)
   
   const wsServiceRef = useRef<WebSocketService | null>(null);
   const dataCollectorRef = useRef<DataCollector | null>(null);
@@ -670,6 +671,53 @@ function App() {
     }));
   };
 
+  // 점바이점 출력: 점을 하나씩 순차적으로 표시하는 함수
+  const displayDotsOneByOne = (pattern: BrailleDot[], char: string, onComplete?: () => void) => {
+    const activeDots = pattern.filter(d => d.isActive).map(d => d.id);
+    let dotIndex = 0;
+    const dotInterval = 200; // 각 점 표시 간격 (0.2초)
+    
+    const displayNextDot = () => {
+      if (dotIndex >= activeDots.length) {
+        // 모든 점 표시 완료
+        if (onComplete) {
+          setTimeout(onComplete, dotInterval);
+        }
+        return;
+      }
+      
+      // 현재까지의 점들을 활성화
+      const currentDots = pattern.map(dot => ({
+        ...dot,
+        isActive: activeDots.slice(0, dotIndex + 1).includes(dot.id)
+      }));
+      
+      const braillePattern: BraillePattern = {
+        dots: currentDots,
+        timestamp: Date.now(),
+        source: 'demo',
+        character: char,
+        binary: currentDots.map(d => d.isActive ? '1' : '0').join('')
+      };
+      
+      setBraillePattern(braillePattern);
+      dotIndex++;
+      
+      // 다음 점 표시
+      if (dotIndex < activeDots.length) {
+        displayTimeoutRef.current = setTimeout(displayNextDot, dotInterval);
+      } else {
+        // 마지막 점 표시 후 완료 콜백 호출
+        displayTimeoutRef.current = setTimeout(() => {
+          if (onComplete) onComplete();
+        }, dotInterval);
+      }
+    };
+    
+    // 첫 번째 점 표시 시작
+    displayNextDot();
+  };
+
   // 텍스트를 점자 패턴으로 변환하여 순차적으로 표시하는 함수
   const displayTextAsBraille = (text: string) => {
     if (!text || text.length === 0) return;
@@ -682,7 +730,7 @@ function App() {
     
     const characters = text.toUpperCase().split('');
     let currentIndex = 0;
-    const interval = 1000; // 각 문자 표시 간격 (1초)
+    const characterInterval = 1500; // 각 문자 표시 간격 (1.5초)
     
     const displayNextCharacter = () => {
       if (currentIndex >= characters.length) {
@@ -690,35 +738,54 @@ function App() {
         setTimeout(() => {
           setBraillePattern(null);
           addLog('info', `테스트 완료: "${text}" 점자 패턴 표시 완료 및 숨김`);
-        }, interval);
+        }, characterInterval);
         return;
       }
       
       const char = characters[currentIndex];
       const pattern = characterToBraillePattern(char);
       
-      const braillePattern: BraillePattern = {
-        dots: pattern,
-        timestamp: Date.now(),
-        source: 'demo',
-        character: char,
-        binary: pattern.map(d => d.isActive ? '1' : '0').join('')
-      };
-      
-      setBraillePattern(braillePattern);
-      addLog('info', `테스트: "${char}" 점자 패턴 표시 (${currentIndex + 1}/${characters.length})`);
-      
-      currentIndex++;
-      
-      // 다음 문자 표시
-      if (currentIndex < characters.length) {
-        displayTimeoutRef.current = setTimeout(displayNextCharacter, interval);
+      if (useDotByDot) {
+        // 점바이점으로 표시
+        displayDotsOneByOne(pattern, char, () => {
+          currentIndex++;
+          
+          // 다음 문자 표시
+          if (currentIndex < characters.length) {
+            displayTimeoutRef.current = setTimeout(displayNextCharacter, characterInterval);
+          } else {
+            // 마지막 문자 표시 후 꺼지기
+            displayTimeoutRef.current = setTimeout(() => {
+              setBraillePattern(null);
+              addLog('info', `테스트 완료: "${text}" 점자 패턴 표시 완료 및 숨김`);
+            }, characterInterval);
+          }
+        });
       } else {
-        // 마지막 문자 표시 후 꺼지기
-        displayTimeoutRef.current = setTimeout(() => {
-          setBraillePattern(null);
-          addLog('info', `테스트 완료: "${text}" 점자 패턴 표시 완료 및 숨김`);
-        }, interval);
+        // 일반 출력: 전체 패턴을 한 번에 표시
+        const braillePattern: BraillePattern = {
+          dots: pattern,
+          timestamp: Date.now(),
+          source: 'demo',
+          character: char,
+          binary: pattern.map(d => d.isActive ? '1' : '0').join('')
+        };
+        
+        setBraillePattern(braillePattern);
+        addLog('info', `테스트: "${char}" 점자 패턴 표시 (${currentIndex + 1}/${characters.length})`);
+        
+        currentIndex++;
+        
+        // 다음 문자 표시
+        if (currentIndex < characters.length) {
+          displayTimeoutRef.current = setTimeout(displayNextCharacter, characterInterval);
+        } else {
+          // 마지막 문자 표시 후 꺼지기
+          displayTimeoutRef.current = setTimeout(() => {
+            setBraillePattern(null);
+            addLog('info', `테스트 완료: "${text}" 점자 패턴 표시 완료 및 숨김`);
+          }, characterInterval);
+        }
       }
     };
     
@@ -1544,7 +1611,28 @@ function App() {
           >
             {showDotsControls ? '▼' : '▶'} 점자 셀 조정
           </button>
-          <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              onClick={() => setUseDotByDot(!useDotByDot)}
+              style={{
+                padding: '6px 12px',
+                background: useDotByDot ? '#ff9800' : '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+                whiteSpace: 'nowrap'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = useDotByDot ? '#f57c00' : '#5a6268'}
+              onMouseOut={(e) => e.currentTarget.style.background = useDotByDot ? '#ff9800' : '#6c757d'}
+              title={useDotByDot ? '점바이점 출력 모드 (클릭하여 일반 출력으로 변경)' : '일반 출력 모드 (클릭하여 점바이점 출력으로 변경)'}
+            >
+              {useDotByDot ? '⚫ 점바이점' : '⚪ 일반'}
+            </button>
             {['A', 'B', 'C', 'HELLO', 'TEST'].map((text) => (
               <button
                 key={text}
