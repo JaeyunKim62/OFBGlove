@@ -8,6 +8,12 @@ import com.example.chatting_app.network.interfaces.CommunicationChannel
 import com.example.chatting_app.network.interfaces.ConfigTransmitter
 import com.example.chatting_app.network.interfaces.SettingsTransmitter
 import com.example.chatting_app.network.interfaces.TextTransmitter
+
+import com.example.chatting_app.network.StandardBrailleTransmitter
+import com.example.chatting_app.network.StandardTextTransmitter
+import com.example.chatting_app.network.StandardSettingsTransmitter
+import com.example.chatting_app.network.StandardConfigTransmitter
+
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
