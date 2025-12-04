@@ -270,6 +270,22 @@ class UnifiedMessageManager(private val context: Context) {
         configTransmitter?.sendWaveformIdAndHoldDuration(waveformId, holdDuration)
     }
     
+    /**
+     * dotMode 설정 전송 (MSG_CONFIG_SET)
+     * @param dotMode 0=CELL(동시 진동), 1=DOT_BY_DOT(순차 진동)
+     */
+    fun sendDotMode(dotMode: Int) {
+        configTransmitter?.sendDotMode(dotMode)
+    }
+    
+    /**
+     * dotInterval 설정 전송 (MSG_CONFIG_SET)
+     * @param dotInterval 점 간 간격 (ms)
+     */
+    fun sendDotInterval(dotInterval: Int) {
+        configTransmitter?.sendDotInterval(dotInterval)
+    }
+    
     // ========== 상태 확인 메서드 ==========
     
     /**

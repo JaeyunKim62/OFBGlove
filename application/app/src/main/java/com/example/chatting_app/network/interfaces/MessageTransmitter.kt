@@ -116,7 +116,7 @@ interface SettingsTransmitter {
 
 /**
  * 구성 전송 인터페이스
- * 하드웨어 구성(waveformId, holdDuration) 전송을 담당
+ * 하드웨어 구성(waveformId, holdDuration, dotMode, dotInterval) 전송을 담당
  */
 interface ConfigTransmitter {
     
@@ -138,5 +138,17 @@ interface ConfigTransmitter {
      * @param holdDuration 점자 패턴 유지 시간 (ms, 0-65535)
      */
     fun sendWaveformIdAndHoldDuration(waveformId: Int, holdDuration: Int)
+    
+    /**
+     * dotMode 설정 전송 (진동 방식)
+     * @param dotMode 0=CELL(동시 진동), 1=DOT_BY_DOT(순차 진동)
+     */
+    fun sendDotMode(dotMode: Int)
+    
+    /**
+     * dotInterval 설정 전송 (순차 진동 시 점 간 간격)
+     * @param dotInterval 점 간 간격 (ms, 0-65535)
+     */
+    fun sendDotInterval(dotInterval: Int)
 }
 

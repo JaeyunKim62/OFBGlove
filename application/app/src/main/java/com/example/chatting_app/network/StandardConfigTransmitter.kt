@@ -88,5 +88,46 @@ class StandardConfigTransmitter(private val channel: CommunicationChannel) : Con
         
         Log.d(TAG, "Sent waveformId: $waveformId, holdDuration: $holdDuration ms")
     }
+    
+    /**
+     * dotMode 설정 전송 (진동 방식)
+     * @param dotMode 0=CELL(동시 진동), 1=DOT_BY_DOT(순차 진동)
+     */
+    override fun sendDotMode(dotMode: Int) {
+        if (dotMode < 0 || dotMode > 1) {
+            Log.w(TAG, "Invalid dotMode: $dotMode (must be 0 or 1)")
+            return
+        }
+        
+        // 파라미터 타입 0x06 = dotMode
+        val data = byteArrayOf(0x06, dotMode.toByte())
+        val packet = WifiMessageProtocol.serializeMessage(MessageType.MSG_CONFIG_SET, data)
+        channel.send(packet)
+        
+        val modeName = if (dotMode == 0) "CELL(동시)" else "DOT_BY_DOT(순차)"
+        Log.d(TAG, "Sent dotMode: $dotMode ($modeName)")
+    }
+    
+    /**
+     * dotInterval 설정 전송 (순차 진동 시 점 간 간격)
+     * @param dotInterval 점 간 간격 (ms, 0-65535)
+     */
+    override fun sendDotInterval(dotInterval: Int) {
+        if (dotInterval < 0 || dotInterval > 65535) {
+            Log.w(TAG, "Invalid dotInterval: $dotInterval (must be 0-65535)")
+            return
+        }
+        
+        // 파라미터 타입 0x07 = dotInterval
+        val data = byteArrayOf(
+            0x07,
+            (dotInterval and 0xFF).toByte(),        // LSB
+            ((dotInterval shr 8) and 0xFF).toByte() // MSB
+        )
+        val packet = WifiMessageProtocol.serializeMessage(MessageType.MSG_CONFIG_SET, data)
+        channel.send(packet)
+        
+        Log.d(TAG, "Sent dotInterval: $dotInterval ms")
+    }
 }
 
