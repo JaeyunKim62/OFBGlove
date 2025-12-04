@@ -27,9 +27,6 @@ import java.util.Locale
 import com.example.chatting_app.network.UnifiedMessageManager
 import com.example.chatting_app.network.WifiMessage
 import com.example.chatting_app.network.MessageType
-import com.example.chatting_app.network.WifiBrailleTransmitter
-import com.example.chatting_app.network.WifiTextTransmitter
-import com.example.chatting_app.network.WifiSettingsTransmitter
 import com.example.chatting_app.ocr.TextRecognizerManager
 import com.example.chatting_app.ocr.OcrResultListener
 import android.graphics.Bitmap
@@ -87,11 +84,6 @@ class ChatViewModel : ViewModel() {
     
     // OCR manager for 필담 이미지 인식
     private val textRecognizerManager = TextRecognizerManager()
-    
-    // WiFi transmitters (UnifiedMessageManager에서 가져옴)
-    private var wifiBrailleTransmitter: WifiBrailleTransmitter? = null
-    private var wifiTextTransmitter: WifiTextTransmitter? = null
-    private var wifiSettingsTransmitter: WifiSettingsTransmitter? = null
     
     // WiFi connection state
     private val _isWifiConnected = MutableStateFlow(false)
@@ -884,20 +876,15 @@ class ChatViewModel : ViewModel() {
     }
     
     /**
-     * WiFi transmitters 초기화 (UnifiedMessageManager에서 가져옴)
+     * WiFi transmitters 초기화 (UnifiedMessageManager에서 관리)
+     * 
+     * 참고: 이전에는 WiFi transmitters를 직접 관리했으나,
+     * 현재는 UnifiedMessageManager 내부에서 StandardTransmitters를 관리하므로
+     * 별도 초기화가 불필요함
      */
     private fun initializeWifiTransmitters() {
         try {
-            Log.d("ChatViewModel", "WiFi transmitters 초기화 시작")
-            
-            // UnifiedMessageManager에서 transmitters 가져오기
-            // 실제로는 UnifiedMessageManager 내부의 transmitters를 직접 사용
-            // 여기서는 참조만 저장
-            wifiBrailleTransmitter = null  // UnifiedMessageManager 내부에서 관리
-            wifiTextTransmitter = null     // UnifiedMessageManager 내부에서 관리
-            wifiSettingsTransmitter = null // UnifiedMessageManager 내부에서 관리
-            
-            Log.d("ChatViewModel", "WiFi transmitters 초기화 완료 (UnifiedMessageManager 사용)")
+            Log.d("ChatViewModel", "WiFi transmitters는 UnifiedMessageManager 내부에서 자동 관리됨")
         } catch (e: Exception) {
             Log.e("ChatViewModel", "WiFi transmitters 초기화 실패: ${e.message}", e)
         }
@@ -1184,7 +1171,7 @@ class ChatViewModel : ViewModel() {
     }
     
     /**
-     * 6개 점을 1바이트로 압축 (WifiBrailleTransmitter의 packBrailleDots와 동일한 로직)
+     * 6개 점을 1바이트로 압축 (StandardBrailleTransmitter의 packBrailleDots와 동일한 로직)
      */
     private fun packBrailleDots(dots: List<Boolean>): Byte {
         var result: Int = 0
