@@ -64,6 +64,8 @@ struct VibrationConfig {
     uint8_t patternLength;     // 패턴 길이 (1-8)
     uint16_t holdDuration;     // 점자 패턴 유지 시간 (ms)
     uint16_t intervalDuration; // 패턴 사이 간격 (ms)
+    uint16_t dotMode; // 점 모드 (0=CELL/동시, 1=DOT_BY_DOT/순차)
+    uint16_t dotInterval; // 점 사이 간격 (ms)
     uint8_t intensity;         // 진동 세기 (0-100, 실제 적용은 waveformId로)
     uint8_t speed;             // 속도 모드 (0=SLOW, 1=NORMAL, 2=FAST)
     uint8_t mode;              // 동작 모드 (0=NORMAL, 1=TEST, 2=DEBUG)
@@ -75,6 +77,8 @@ VibrationConfig currentConfig = {
     .patternLength = DEFAULT_PATTERN_LEN,
     .holdDuration = BRAILLE_PATTERN_HOLD_MS,
     .intervalDuration = 200,
+    .dotMode = 0, // CELL
+    .dotInterval = 100,
     .intensity = 100,
     .speed = 1,  // NORMAL
     .mode = 0,   // NORMAL
@@ -113,16 +117,19 @@ void handleConfigGet() {
     payload[7] = currentConfig.intensity;
     payload[8] = currentConfig.speed;
     payload[9] = currentConfig.mode;
-    payload[10] = currentConfig.flags;
+    payload[10] = currentConfig.dotMode;
+    payload[11] = currentConfig.dotInterval & 0xFF;
+    payload[12] = (currentConfig.dotInterval >> 8) & 0xFF;
+    payload[13] = currentConfig.flags;
     
     uint8_t header[4];
     header[0] = MSG_CONFIG_GET;
-    header[1] = 11;  // length LSB
+    header[1] = 14;  // length LSB
     header[2] = 0;   // length MSB
-    header[3] = calculateChecksum(payload, 11);
-    
+    header[3] = calculateChecksum(payload, 14);
+
     client.write(header, 4);
-    client.write(payload, 11);
+    client.write(payload, 14);
     client.flush();
     
     Serial.println("[CONFIG] Config sent to client");
@@ -137,6 +144,8 @@ void handleConfigReset() {
     currentConfig.intensity = 100;
     currentConfig.speed = 1;
     currentConfig.mode = 0;
+    currentConfig.dotMode = 0;
+    currentConfig.dotInterval = 100;
     currentConfig.flags = 0x00;
     applyConfig();
     Serial.println("[CONFIG] Reset to defaults");
@@ -177,6 +186,22 @@ void handleConfigSet(uint8_t* data, size_t len) {
             if (len >= 2) {
                 currentConfig.intensity = data[1];
                 Serial.printf("[CONFIG] intensity = %d\n", currentConfig.intensity);
+            }
+            break;
+            case 0x06: // dotMode (새로 추가)
+            if (len >= 2) {
+                if (data[1] <= 1) {
+                    currentConfig.dotMode = data[1];
+                    Serial.printf("[CONFIG] dotMode = %d (%s)\n", 
+                                 currentConfig.dotMode,
+                                 currentConfig.dotMode == 0 ? "CELL" : "DOT_BY_DOT");
+                }
+            }
+            break;
+        case 0x07: // dotInterval (새로 추가)
+            if (len >= 3) {
+                currentConfig.dotInterval = data[1] | (data[2] << 8);
+                Serial.printf("[CONFIG] dotInterval = %d ms\n", currentConfig.dotInterval);
             }
             break;
         case 0x05: // 전체 설정 (8 bytes)
@@ -279,16 +304,44 @@ void applyBraillePattern(uint8_t dotsByte) {
     for (uint8_t i = 0; i < currentConfig.patternLength; ++i) {
         pattern[i] = currentConfig.waveformId;
     }
-    for (uint8_t dot = 0; dot < BRAILLE_DOT_COUNT; ++dot) {
-        bool shouldActivate = (dotsByte & (1U << dot)) != 0;
-
-        if (shouldActivate) {
-            if (motorPlayPattern(dot, pattern, currentConfig.patternLength)) {
-                motorActiveState[dot] = true;
+    
+    if (currentConfig.dotMode == 1) {
+        // DOT_BY_DOT 모드: 순차 진동
+        Serial.printf("[MOTOR] DOT_BY_DOT mode: dots=0x%02X\n", dotsByte);
+        for (uint8_t dot = 0; dot < BRAILLE_DOT_COUNT; ++dot) {
+            bool shouldActivate = (dotsByte & (1U << dot)) != 0;
+            
+            if (shouldActivate) {
+                if (motorPlayPattern(dot, pattern, currentConfig.patternLength)) {
+                    motorActiveState[dot] = true;
+                    Serial.printf("  [DOT %d] ON\n", dot + 1);
+                }
+                
+                // 점 간 간격 대기
+                if (dot < BRAILLE_DOT_COUNT - 1) {
+                    delay(currentConfig.dotInterval);
+                }
+                
+                // 각 점을 개별적으로 멈춤
+                if (motorStop(dot)) {
+                    motorActiveState[dot] = false;
+                }
             }
-        } else if (motorActiveState[dot]) {
-            if (motorStop(dot)) {
-                motorActiveState[dot] = false;
+        }
+    } else {
+        // CELL 모드: 동시 진동 (기존 방식)
+        Serial.printf("[MOTOR] CELL mode: dots=0x%02X\n", dotsByte);
+        for (uint8_t dot = 0; dot < BRAILLE_DOT_COUNT; ++dot) {
+            bool shouldActivate = (dotsByte & (1U << dot)) != 0;
+            
+            if (shouldActivate) {
+                if (motorPlayPattern(dot, pattern, currentConfig.patternLength)) {
+                    motorActiveState[dot] = true;
+                }
+            } else if (motorActiveState[dot]) {
+                if (motorStop(dot)) {
+                    motorActiveState[dot] = false;
+                }
             }
         }
     }
