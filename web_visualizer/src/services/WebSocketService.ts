@@ -2,6 +2,7 @@
 import { WebSocketMessageType, BraillePatternMessage, ConnectedMessage, StatusMessage } from '../types/websocket';
 import { BraillePattern } from '../types/braille';
 import { NetworkUtils } from '../utils/networkUtils';
+import { CommunicationService, ConnectionState } from './interfaces/CommunicationService';
 
 export interface ClientInfo {
   id: string;
@@ -12,14 +13,17 @@ export interface ClientInfo {
   type: string;
 }
 
-export class WebSocketService {
+export class WebSocketService implements CommunicationService {
   private ws: WebSocket | null = null;
   private url: string | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectInterval = 3000;
   
-  // 이벤트 핸들러들
+  // 연결 상태 (CommunicationService 인터페이스)
+  public connectionState: ConnectionState = ConnectionState.DISCONNECTED;
+  
+  // 이벤트 핸들러들 (CommunicationService 인터페이스)
   public onBraillePattern?: (pattern: BraillePattern) => void;
   public onConnected?: (data: ConnectedMessage) => void;
   public onStatus?: (data: StatusMessage) => void;
@@ -52,6 +56,8 @@ export class WebSocketService {
   async connect(): Promise<void> {
     return new Promise(async (resolve, reject) => {
       try {
+        this.connectionState = ConnectionState.CONNECTING;
+        
         // URL이 없으면 동적으로 생성
         if (!this.url) {
           this.url = await this.getDefaultURL();
@@ -62,6 +68,7 @@ export class WebSocketService {
         this.ws.onopen = () => {
           console.log('WebSocket 연결됨');
           this.reconnectAttempts = 0;
+          this.connectionState = ConnectionState.CONNECTED;
           resolve();
         };
         
@@ -76,12 +83,14 @@ export class WebSocketService {
         
         this.ws.onerror = (error) => {
           console.error('WebSocket 오류:', error);
+          this.connectionState = ConnectionState.ERROR;
           this.onError?.(error);
           reject(error);
         };
 
         this.ws.onclose = (event) => {
           console.log('WebSocket 연결 종료:', event.code, event.reason);
+          this.connectionState = ConnectionState.DISCONNECTED;
           this.onClose?.(event);
           this.attemptReconnect();
         };
@@ -172,6 +181,15 @@ export class WebSocketService {
       this.ws.close();
       this.ws = null;
     }
+    this.connectionState = ConnectionState.DISCONNECTED;
+  }
+  
+  /**
+   * 재연결 (CommunicationService 인터페이스)
+   */
+  async reconnect(): Promise<void> {
+    this.disconnect();
+    await this.connect();
   }
 
   send(message: any) {
