@@ -3,308 +3,287 @@ package com.example.chatting_app.network
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
+import com.example.chatting_app.network.interfaces.BrailleTransmitter
+import com.example.chatting_app.network.interfaces.CommunicationChannel
+import com.example.chatting_app.network.interfaces.ConfigTransmitter
+import com.example.chatting_app.network.interfaces.SettingsTransmitter
+import com.example.chatting_app.network.interfaces.TextTransmitter
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 /**
- * 통합 메시지 매니저 - WiFi와 BLE 통합 관리
+ * 통합 메시지 매니저 - 인터페이스 기반 설계
+ * WiFi, BLE 등 다양한 통신 방식을 통합 관리
  */
 class UnifiedMessageManager(private val context: Context) {
     
     private val TAG = "UnifiedMessageManager"
     
-    // WiFi 클라이언트
-    private val wifiClient = WifiClient(context)
-    private val wifiBrailleTransmitter = WifiBrailleTransmitter(wifiClient)
-    private val wifiTextTransmitter = WifiTextTransmitter(wifiClient)
-    private val wifiSettingsTransmitter = WifiSettingsTransmitter(wifiClient)
-    private val wifiConfigTransmitter = WifiConfigTransmitter(wifiClient)
+    // 코루틴 스코프 (ViewModel 외부에서 사용되므로 자체 스코프 필요)
+    private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     
-    // BLE 매니저 (나중에 구현)
-    // private val bleManager = BrailleBleManager(context)
+    // 현재 통신 채널 및 전송기들
+    private var channel: CommunicationChannel? = null
+    private var brailleTransmitter: BrailleTransmitter? = null
+    private var textTransmitter: TextTransmitter? = null
+    private var settingsTransmitter: SettingsTransmitter? = null
+    private var configTransmitter: ConfigTransmitter? = null
     
     // 현재 연결 타입
-    private var currentConnectionType = ConnectionType.WIFI
+    private var currentConnectionType: ConnectionType? = null
     
-    // 연결 상태
-    val connectionState: StateFlow<ConnectionState> = wifiClient.connectionState
+    // 자체 상태 관리 (채널이 null일 때도 접근 가능)
+    private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
+    val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
     
-    // 수신된 메시지
-    val receivedMessage: StateFlow<WifiMessage?> = wifiClient.receivedMessage
+    private val _receivedMessage = MutableStateFlow<WifiMessage?>(null)
+    val receivedMessage: StateFlow<WifiMessage?> = _receivedMessage.asStateFlow()
     
     /**
      * 이미지 수신 콜백 설정
      */
     fun setOnImageReceived(callback: (Bitmap) -> Unit) {
-        wifiClient.onImageReceived = callback
+        channel?.setOnImageReceived(callback)
     }
     
     /**
      * DOT_PATTERN 수신 콜백 설정
      */
     fun setOnDotPatternReceived(callback: (Byte) -> Unit) {
-        wifiClient.onDotPatternReceived = callback
+        channel?.setOnDotPatternReceived(callback)
     }
     
     /**
      * WiFi 서버에 연결
      */
     fun connectWifi(ipAddress: String, port: Int = 8888) {
-        currentConnectionType = ConnectionType.WIFI
-        wifiClient.connect(ipAddress, port)
         Log.d(TAG, "Connecting to WiFi: $ipAddress:$port")
+        
+        // WiFi 채널 생성
+        val wifiChannel = WifiCommunicationChannel(context, ipAddress, port)
+        channel = wifiChannel
+        
+        // 전송기들 초기화
+        initializeTransmitters(wifiChannel)
+        
+        // 연결 타입 설정
+        currentConnectionType = ConnectionType.WIFI
+        
+        // 채널의 상태를 미러링
+        mirrorChannelState(wifiChannel)
+        
+        // 연결 시작
+        wifiChannel.connect()
     }
     
     /**
-     * BLE 디바이스에 연결 (나중에 구현)
+     * BLE 디바이스에 연결 (미구현)
+     * TODO: BLE 구현 시 BleCommunicationChannel 사용
      */
     fun connectBle(deviceAddress: String) {
-        currentConnectionType = ConnectionType.BLE
-        // bleManager.connect(deviceAddress)
-        Log.d(TAG, "BLE connection not implemented yet")
+        Log.w(TAG, "BLE connection not implemented yet: $deviceAddress")
+        _connectionState.value = ConnectionState.ERROR
+        
+        // TODO: BLE 구현 예시
+        // val bleChannel = BleCommunicationChannel(context, deviceAddress)
+        // channel = bleChannel
+        // initializeTransmitters(bleChannel)
+        // currentConnectionType = ConnectionType.BLE
+        // mirrorChannelState(bleChannel)
+        // bleChannel.connect()
+    }
+    
+    /**
+     * 전송기들 초기화
+     */
+    private fun initializeTransmitters(communicationChannel: CommunicationChannel) {
+        brailleTransmitter = StandardBrailleTransmitter(communicationChannel)
+        textTransmitter = StandardTextTransmitter(communicationChannel)
+        settingsTransmitter = StandardSettingsTransmitter(communicationChannel)
+        configTransmitter = StandardConfigTransmitter(communicationChannel)
+    }
+    
+    /**
+     * 채널의 상태를 UnifiedMessageManager의 StateFlow로 미러링
+     */
+    private fun mirrorChannelState(communicationChannel: CommunicationChannel) {
+        // 연결 상태 미러링
+        managerScope.launch {
+            communicationChannel.connectionState.collect { state ->
+                _connectionState.value = state
+            }
+        }
+        
+        // 수신 메시지 미러링
+        managerScope.launch {
+            communicationChannel.receivedMessage.collect { message ->
+                _receivedMessage.value = message
+            }
+        }
     }
     
     /**
      * 연결 해제
      */
     fun disconnect() {
-        when (currentConnectionType) {
-            ConnectionType.WIFI -> wifiClient.disconnect()
-            ConnectionType.BLE -> {
-                // bleManager.disconnect()
-            }
-        }
-        Log.d(TAG, "Disconnected from $currentConnectionType")
+        channel?.disconnect()
+        _connectionState.value = ConnectionState.DISCONNECTED
+        Log.d(TAG, "Disconnected from ${currentConnectionType ?: "Unknown"}")
     }
+    
+    /**
+     * 리소스 정리 (ViewModel onCleared 등에서 호출)
+     */
+    fun cleanup() {
+        disconnect()
+        // 코루틴 스코프는 SupervisorJob이므로 자동으로 정리됨
+    }
+    
+    // ========== 점자 전송 메서드 (BrailleTransmitter로 위임) ==========
     
     /**
      * 점 터치 전송
      */
     fun sendDotTouch(dotIndex: Int) {
-        when (currentConnectionType) {
-            ConnectionType.WIFI -> wifiBrailleTransmitter.sendDotTouch(dotIndex)
-            ConnectionType.BLE -> {
-                // bleManager.sendDotTouch(dotIndex)
-                Log.d(TAG, "BLE dot touch not implemented yet")
-            }
-        }
+        brailleTransmitter?.sendDotTouch(dotIndex)
     }
     
     /**
      * 점 릴리즈 전송
      */
     fun sendDotRelease(dotIndex: Int) {
-        when (currentConnectionType) {
-            ConnectionType.WIFI -> wifiBrailleTransmitter.sendDotRelease(dotIndex)
-            ConnectionType.BLE -> {
-                // bleManager.sendDotRelease(dotIndex)
-                Log.d(TAG, "BLE dot release not implemented yet")
-            }
-        }
+        brailleTransmitter?.sendDotRelease(dotIndex)
     }
     
     /**
      * 패턴 완성 전송
      */
     fun sendPatternComplete(dots: List<Boolean>) {
-        when (currentConnectionType) {
-            ConnectionType.WIFI -> wifiBrailleTransmitter.sendPatternComplete(dots)
-            ConnectionType.BLE -> {
-                // bleManager.sendPatternComplete(dots)
-                Log.d(TAG, "BLE pattern complete not implemented yet")
-            }
-        }
+        brailleTransmitter?.sendPatternComplete(dots)
     }
     
     /**
      * 초기화 전송
      */
     fun sendClear() {
-        when (currentConnectionType) {
-            ConnectionType.WIFI -> wifiBrailleTransmitter.sendClear()
-            ConnectionType.BLE -> {
-                // bleManager.sendClear()
-                Log.d(TAG, "BLE clear not implemented yet")
-            }
-        }
+        brailleTransmitter?.sendClear()
     }
     
     /**
      * 단어 구분자 전송 (공백)
      */
     fun sendWordSeparator() {
-        when (currentConnectionType) {
-            ConnectionType.WIFI -> wifiBrailleTransmitter.sendWordSeparator()
-            ConnectionType.BLE -> {
-                // bleManager.sendWordSeparator()
-                Log.d(TAG, "BLE word separator not implemented yet")
-            }
-        }
+        brailleTransmitter?.sendWordSeparator()
     }
     
     /**
      * 문장 구분자 전송
      */
     fun sendSentenceSeparator() {
-        when (currentConnectionType) {
-            ConnectionType.WIFI -> wifiBrailleTransmitter.sendSentenceSeparator()
-            ConnectionType.BLE -> {
-                // bleManager.sendSentenceSeparator()
-                Log.d(TAG, "BLE sentence separator not implemented yet")
-            }
-        }
+        brailleTransmitter?.sendSentenceSeparator()
     }
     
     /**
      * 점자 구분자 전송 (개별 점자 모드)
      */
     fun sendBrailleSeparator() {
-        when (currentConnectionType) {
-            ConnectionType.WIFI -> wifiBrailleTransmitter.sendBrailleSeparator()
-            ConnectionType.BLE -> {
-                // bleManager.sendBrailleSeparator()
-                Log.d(TAG, "BLE braille separator not implemented yet")
-            }
-        }
+        brailleTransmitter?.sendBrailleSeparator()
     }
     
     /**
      * 점자 시퀀스 전송
      */
     fun sendBrailleSequence(patterns: List<Byte>) {
-        when (currentConnectionType) {
-            ConnectionType.WIFI -> wifiBrailleTransmitter.sendBrailleSequence(patterns)
-            ConnectionType.BLE -> {
-                // bleManager.sendBrailleSequence(patterns)
-                Log.d(TAG, "BLE braille sequence not implemented yet")
-            }
-        }
+        brailleTransmitter?.sendBrailleSequence(patterns)
     }
+    
+    // ========== 텍스트 전송 메서드 (TextTransmitter로 위임) ==========
     
     /**
      * 텍스트 메시지 전송
      */
     fun sendTextMessage(text: String, braille: String) {
-        when (currentConnectionType) {
-            ConnectionType.WIFI -> wifiTextTransmitter.sendTextMessage(text, braille)
-            ConnectionType.BLE -> {
-                // bleManager.sendTextMessage(text, braille)
-                Log.d(TAG, "BLE text message not implemented yet")
-            }
-        }
+        textTransmitter?.sendTextMessage(text, braille)
     }
     
     /**
      * 긴 텍스트 메시지 전송 (청크 분할)
      */
     fun sendLongTextMessage(text: String, braille: String) {
-        when (currentConnectionType) {
-            ConnectionType.WIFI -> wifiTextTransmitter.sendLongTextMessage(text, braille)
-            ConnectionType.BLE -> {
-                // bleManager.sendLongTextMessage(text, braille)
-                Log.d(TAG, "BLE long text message not implemented yet")
-            }
-        }
+        textTransmitter?.sendLongTextMessage(text, braille)
     }
+    
+    // ========== 설정 전송 메서드 (SettingsTransmitter로 위임) ==========
     
     /**
      * 설정 전송
      */
     fun sendSettings(settings: BrailleSettings) {
-        when (currentConnectionType) {
-            ConnectionType.WIFI -> wifiSettingsTransmitter.sendSettings(settings)
-            ConnectionType.BLE -> {
-                // bleManager.sendSettings(settings)
-                Log.d(TAG, "BLE settings not implemented yet")
-            }
-        }
+        settingsTransmitter?.sendSettings(settings)
     }
     
     /**
      * 속도 설정 전송
      */
     fun sendSpeed(speed: BrailleSpeed) {
-        when (currentConnectionType) {
-            ConnectionType.WIFI -> wifiSettingsTransmitter.sendSpeed(speed)
-            ConnectionType.BLE -> {
-                // bleManager.sendSpeed(speed)
-                Log.d(TAG, "BLE speed not implemented yet")
-            }
-        }
+        settingsTransmitter?.sendSpeed(speed)
     }
     
     /**
      * 모드 설정 전송
      */
     fun sendMode(mode: BrailleMode) {
-        when (currentConnectionType) {
-            ConnectionType.WIFI -> wifiSettingsTransmitter.sendMode(mode)
-            ConnectionType.BLE -> {
-                // bleManager.sendMode(mode)
-                Log.d(TAG, "BLE mode not implemented yet")
-            }
-        }
+        settingsTransmitter?.sendMode(mode)
     }
+    
+    // ========== 구성 전송 메서드 (ConfigTransmitter로 위임) ==========
     
     /**
      * waveformId 설정 전송 (MSG_CONFIG_SET)
      */
     fun sendWaveformId(waveformId: Int) {
-        when (currentConnectionType) {
-            ConnectionType.WIFI -> wifiConfigTransmitter.sendWaveformId(waveformId)
-            ConnectionType.BLE -> {
-                Log.d(TAG, "BLE config not implemented yet")
-            }
-        }
+        configTransmitter?.sendWaveformId(waveformId)
     }
     
     /**
      * holdDuration 설정 전송 (MSG_CONFIG_SET)
      */
     fun sendHoldDuration(holdDuration: Int) {
-        when (currentConnectionType) {
-            ConnectionType.WIFI -> wifiConfigTransmitter.sendHoldDuration(holdDuration)
-            ConnectionType.BLE -> {
-                Log.d(TAG, "BLE config not implemented yet")
-            }
-        }
+        configTransmitter?.sendHoldDuration(holdDuration)
     }
     
     /**
      * waveformId와 holdDuration을 함께 전송 (MSG_CONFIG_SET)
      */
     fun sendWaveformIdAndHoldDuration(waveformId: Int, holdDuration: Int) {
-        when (currentConnectionType) {
-            ConnectionType.WIFI -> wifiConfigTransmitter.sendWaveformIdAndHoldDuration(waveformId, holdDuration)
-            ConnectionType.BLE -> {
-                Log.d(TAG, "BLE config not implemented yet")
-            }
-        }
+        configTransmitter?.sendWaveformIdAndHoldDuration(waveformId, holdDuration)
     }
+    
+    // ========== 상태 확인 메서드 ==========
     
     /**
      * 연결 상태 확인
      */
     fun isConnected(): Boolean {
-        return when (currentConnectionType) {
-            ConnectionType.WIFI -> wifiClient.isConnected()
-            ConnectionType.BLE -> {
-                // bleManager.isConnected()
-                false
-            }
-        }
+        return channel?.isConnected() ?: false
     }
     
     /**
      * 현재 연결 타입 반환
      */
-    fun getCurrentConnectionType(): ConnectionType {
+    fun getCurrentConnectionType(): ConnectionType? {
         return currentConnectionType
     }
-}
-
-/**
- * 연결 타입
- */
-enum class ConnectionType {
-    WIFI, BLE
+    
+    /**
+     * 디버그 정보 반환
+     */
+    fun getDebugInfo(): String {
+        return channel?.getDebugInfo() ?: "No channel connected"
+    }
 }
