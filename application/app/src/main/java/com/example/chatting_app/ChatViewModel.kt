@@ -932,7 +932,19 @@ class ChatViewModel : ViewModel() {
      */
     fun setTransmissionMode(mode: TransmissionMode) {
         _transmissionMode.value = mode
-        Log.d("ChatViewModel", "전송 모드 변경: $mode")
+        
+        // ESP에 dotMode와 dotInterval 설정 전송
+        when (mode) {
+            TransmissionMode.PATTERN -> {
+                messageManager?.sendDotMode(0)  // CELL (동시 진동)
+            }
+            TransmissionMode.DOT_BY_DOT -> {
+                messageManager?.sendDotMode(1)     // DOT_BY_DOT (순차 진동)
+                messageManager?.sendDotInterval(50) // 50ms 간격 (기본값)
+            }
+        }
+        
+        Log.d("ChatViewModel", "전송 모드 변경: $mode → ESP에 설정 전송")
     }
     
     /**
@@ -1119,15 +1131,16 @@ class ChatViewModel : ViewModel() {
      * 점자 패턴을 구분자와 함께 전송
      */
     private suspend fun sendBraillePatternsWithSeparators(text: String, patterns: List<List<Boolean>>) {
-        val currentMode = _transmissionMode.value
+        // val currentMode = _transmissionMode.value
         
-        if (currentMode == TransmissionMode.DOT_BY_DOT) {
-            // 개별 점 모드: 점자를 개별 점으로 분할하여 전송
-            sendBraillePatternsDotByDot(text, patterns)
-        } else {
-            // 패턴 모드: 기존 방식
-            sendBraillePatternsNormal(text, patterns)
-        }
+        // if (currentMode == TransmissionMode.DOT_BY_DOT) {
+        //     // 개별 점 모드: 점자를 개별 점으로 분할하여 전송
+        //     sendBraillePatternsDotByDot(text, patterns)
+        // } else {
+        //     // 패턴 모드: 기존 방식
+        //     sendBraillePatternsNormal(text, patterns)
+        // }
+        sendBraillePatternsNormal(text, patterns)
     }
     
     /**
