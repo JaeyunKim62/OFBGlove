@@ -5,6 +5,7 @@ import { ConnectionInfo } from './components/ConnectionInfo';
 import { ServerLog } from './components/ServerLog';
 import { HandwritingCanvas } from './components/HandwritingCanvas';
 import { WebSocketService } from './services/WebSocketService';
+import { CommunicationService } from './services/interfaces/CommunicationService';
 import { DataCollector } from './utils/dataCollector';
 import { BraillePattern, BrailleData, BrailleDot } from './types/braille';
 import { resizeImage, base64ToArrayBuffer } from './utils/imageUtils';
@@ -72,7 +73,7 @@ function App() {
   const [dotsRotation, setDotsRotation] = useState(0); // 점자 셀 회전 (도)
   const [useDotByDot, setUseDotByDot] = useState(true); // 점바이점 출력 모드 (true: 점바이점, false: 일반)
   
-  const wsServiceRef = useRef<WebSocketService | null>(null);
+  const wsServiceRef = useRef<CommunicationService | null>(null);
   const dataCollectorRef = useRef<DataCollector | null>(null);
   const displayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const sequenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
