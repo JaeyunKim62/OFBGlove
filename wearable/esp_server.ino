@@ -2,11 +2,11 @@
 #include <Wire.h>
 
 #ifndef MOTOR_I2C_SDA_PIN
-#define MOTOR_I2C_SDA_PIN 6
+#define MOTOR_I2C_SDA_PIN 22
 #endif
 
 #ifndef MOTOR_I2C_SCL_PIN
-#define MOTOR_I2C_SCL_PIN 7
+#define MOTOR_I2C_SCL_PIN 23
 #endif
 
 #ifndef MOTOR_I2C_CLOCK_HZ
@@ -26,7 +26,7 @@ constexpr uint8_t DEFAULT_WAVEFORM_ID    = 47;
 constexpr uint8_t DEFAULT_PATTERN_LEN    = 1;
 constexpr uint16_t BRAILLE_PATTERN_HOLD_MS = 1000;
 
-const char* apSsid     = "OFBG_AP";
+const char* apSsid     = "OFBG_AP7";
 const char* apPassword = "12345678";       // 8자 이상
 const int   TCP_PORT   = 8888;
 
@@ -106,7 +106,7 @@ void handleConfigGet() {
         return;
     }
     
-    uint8_t payload[11];
+    uint8_t payload[14];
     payload[0] = 0x00;  // response type
     payload[1] = currentConfig.waveformId;
     payload[2] = currentConfig.patternLength;
@@ -188,16 +188,16 @@ void handleConfigSet(uint8_t* data, size_t len) {
                 Serial.printf("[CONFIG] intensity = %d\n", currentConfig.intensity);
             }
             break;
-            case 0x06: // dotMode (새로 추가)
-            if (len >= 2) {
-                if (data[1] <= 1) {
-                    currentConfig.dotMode = data[1];
-                    Serial.printf("[CONFIG] dotMode = %d (%s)\n", 
-                                 currentConfig.dotMode,
-                                 currentConfig.dotMode == 0 ? "CELL" : "DOT_BY_DOT");
-                }
+        case 0x06: // dotMode (새로 추가)
+        if (len >= 2) {
+            if (data[1] <= 1) {
+                currentConfig.dotMode = data[1];
+                Serial.printf("[CONFIG] dotMode = %d (%s)\n", 
+                                currentConfig.dotMode,
+                                currentConfig.dotMode == 0 ? "CELL" : "DOT_BY_DOT");
             }
-            break;
+        }
+        break;
         case 0x07: // dotInterval (새로 추가)
             if (len >= 3) {
                 currentConfig.dotInterval = data[1] | (data[2] << 8);
@@ -306,8 +306,10 @@ void applyBraillePattern(uint8_t dotsByte) {
     }
     
     if (currentConfig.dotMode == 1) {
-        // DOT_BY_DOT 모드: 순차 진동
+        // DOT_BY_DOT 모드: 순차 진동 (시작 시간 기준 간격)
         Serial.printf("[MOTOR] DOT_BY_DOT mode: dots=0x%02X\n", dotsByte);
+    
+        // 각 점을 dotInterval 간격으로 순차 켜기
         for (uint8_t dot = 0; dot < BRAILLE_DOT_COUNT; ++dot) {
             bool shouldActivate = (dotsByte & (1U << dot)) != 0;
             
@@ -317,17 +319,20 @@ void applyBraillePattern(uint8_t dotsByte) {
                     Serial.printf("  [DOT %d] ON\n", dot + 1);
                 }
                 
-                // 점 간 간격 대기
+                // 다음 점까지 간격 (시작 시간 기준)
+                // 이 시간 동안 현재 점은 계속 진동 중
                 if (dot < BRAILLE_DOT_COUNT - 1) {
                     delay(currentConfig.dotInterval);
                 }
-                
-                // 각 점을 개별적으로 멈춤
-                if (motorStop(dot)) {
-                    motorActiveState[dot] = false;
-                }
             }
         }
+        
+        // 모든 점을 켠 후, holdDuration만큼 유지
+        delay(currentConfig.holdDuration);
+        
+        // 전체 끄기
+        stopAllMotors();
+
     } else {
         // CELL 모드: 동시 진동 (기존 방식)
         Serial.printf("[MOTOR] CELL mode: dots=0x%02X\n", dotsByte);
