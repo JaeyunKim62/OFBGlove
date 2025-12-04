@@ -1,25 +1,27 @@
 package com.example.chatting_app.network
 
 import android.util.Log
+import com.example.chatting_app.network.interfaces.SettingsTransmitter
+import com.example.chatting_app.network.interfaces.CommunicationChannel
 
 /**
  * WiFi 설정 전송기 - GATT 호환
  */
-class WifiSettingsTransmitter(private val wifiClient: WifiClient) {
+class WifiSettingsTransmitter(private val channel: CommunicationChannel) : SettingsTransmitter {
     
     private val TAG = "WifiSettingsTransmitter"
     
     /**
      * 설정 전송
      */
-    fun sendSettings(settings: BrailleSettings) {
+    override fun sendSettings(settings: BrailleSettings) {
         val data = ByteArray(3)
         data[0] = settings.speed.value
         data[1] = settings.mode.value
         data[2] = settings.flags
         
         val packet = WifiMessageProtocol.serializeMessage(MessageType.SETTINGS, data)
-        wifiClient.send(packet)
+        channel.send(packet)
         
         Log.d(TAG, "Sent settings: speed=${settings.speed.name}, mode=${settings.mode.name}")
     }
@@ -27,7 +29,7 @@ class WifiSettingsTransmitter(private val wifiClient: WifiClient) {
     /**
      * 속도 설정만 전송
      */
-    fun sendSpeed(speed: BrailleSpeed) {
+    override fun sendSpeed(speed: BrailleSpeed) {
         val settings = BrailleSettings(speed = speed, mode = BrailleMode.AUTO)
         sendSettings(settings)
     }
@@ -35,7 +37,7 @@ class WifiSettingsTransmitter(private val wifiClient: WifiClient) {
     /**
      * 모드 설정만 전송
      */
-    fun sendMode(mode: BrailleMode) {
+    override fun sendMode(mode: BrailleMode) {
         val settings = BrailleSettings(speed = BrailleSpeed.NORMAL, mode = mode)
         sendSettings(settings)
     }
@@ -43,7 +45,7 @@ class WifiSettingsTransmitter(private val wifiClient: WifiClient) {
     /**
      * 플래그 설정만 전송
      */
-    fun sendFlags(flags: Byte) {
+    override fun sendFlags(flags: Byte) {
         val settings = BrailleSettings(
             speed = BrailleSpeed.NORMAL,
             mode = BrailleMode.AUTO,

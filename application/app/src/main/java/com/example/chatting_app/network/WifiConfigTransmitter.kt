@@ -1,11 +1,13 @@
 package com.example.chatting_app.network
 
 import android.util.Log
+import com.example.chatting_app.network.interfaces.ConfigTransmitter
+import com.example.chatting_app.network.interfaces.CommunicationChannel
 
 /**
  * WiFi 설정 전송기 - MSG_CONFIG_SET (0x0A) 사용
  */
-class WifiConfigTransmitter(private val wifiClient: WifiClient) {
+class WifiConfigTransmitter(private val channel: CommunicationChannel) : ConfigTransmitter {
     
     private val TAG = "WifiConfigTransmitter"
     
@@ -13,7 +15,7 @@ class WifiConfigTransmitter(private val wifiClient: WifiClient) {
      * waveformId 설정 전송
      * @param waveformId 진동 패턴 ID (0-255)
      */
-    fun sendWaveformId(waveformId: Int) {
+    override fun sendWaveformId(waveformId: Int) {
         if (waveformId < 0 || waveformId > 255) {
             Log.w(TAG, "Invalid waveformId: $waveformId (must be 0-255)")
             return
@@ -22,7 +24,7 @@ class WifiConfigTransmitter(private val wifiClient: WifiClient) {
         // 파라미터 타입 0x01 = waveformId
         val data = byteArrayOf(0x01, waveformId.toByte())
         val packet = WifiMessageProtocol.serializeMessage(MessageType.MSG_CONFIG_SET, data)
-        wifiClient.send(packet)
+        channel.send(packet)
         
         Log.d(TAG, "Sent waveformId: $waveformId")
     }
@@ -33,7 +35,7 @@ class WifiConfigTransmitter(private val wifiClient: WifiClient) {
      * 기본값을 사용하여 전체 설정으로 전송
      * @param holdDuration 점자 패턴 유지 시간 (ms, 0-65535)
      */
-    fun sendHoldDuration(holdDuration: Int) {
+    override fun sendHoldDuration(holdDuration: Int) {
         if (holdDuration < 0 || holdDuration > 65535) {
             Log.w(TAG, "Invalid holdDuration: $holdDuration (must be 0-65535)")
             return
@@ -57,7 +59,7 @@ class WifiConfigTransmitter(private val wifiClient: WifiClient) {
             0x00   // flags
         )
         val packet = WifiMessageProtocol.serializeMessage(MessageType.MSG_CONFIG_SET, data)
-        wifiClient.send(packet)
+        channel.send(packet)
         
         Log.d(TAG, "Sent holdDuration: $holdDuration ms (via full config)")
     }
@@ -67,7 +69,7 @@ class WifiConfigTransmitter(private val wifiClient: WifiClient) {
      * @param waveformId 진동 패턴 ID (0-255)
      * @param holdDuration 점자 패턴 유지 시간 (ms, 0-65535)
      */
-    fun sendWaveformIdAndHoldDuration(waveformId: Int, holdDuration: Int) {
+    override fun sendWaveformIdAndHoldDuration(waveformId: Int, holdDuration: Int) {
         if (waveformId < 0 || waveformId > 255) {
             Log.w(TAG, "Invalid waveformId: $waveformId (must be 0-255)")
             return

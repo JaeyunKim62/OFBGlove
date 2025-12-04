@@ -1,18 +1,20 @@
 package com.example.chatting_app.network
 
 import android.util.Log
+import com.example.chatting_app.network.interfaces.TextTransmitter
+import com.example.chatting_app.network.interfaces.CommunicationChannel
 
 /**
  * WiFi 텍스트 메시지 전송기 - GATT 호환
  */
-class WifiTextTransmitter(private val wifiClient: WifiClient) {
+class WifiTextTransmitter(private val channel: CommunicationChannel) : TextTransmitter {
     
     private val TAG = "WifiTextTransmitter"
     
     /**
      * 텍스트 메시지 전송 (점자로 변환된 텍스트)
      */
-    fun sendTextMessage(text: String, braille: String) {
+    override fun sendTextMessage(text: String, braille: String) {
         val textBytes = text.toByteArray(Charsets.UTF_8)
         val brailleBytes = braille.toByteArray(Charsets.UTF_8)
         
@@ -43,7 +45,7 @@ class WifiTextTransmitter(private val wifiClient: WifiClient) {
     /**
      * 긴 텍스트 메시지를 청크로 분할하여 전송
      */
-    fun sendLongTextMessage(text: String, braille: String) {
+    override fun sendLongTextMessage(text: String, braille: String) {
         val maxChunkSize = 200 // 헤더 4바이트 + 메타데이터 2바이트 제외
         
         if (text.length <= maxChunkSize && braille.length <= maxChunkSize) {
