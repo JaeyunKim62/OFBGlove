@@ -5,11 +5,12 @@ import com.example.chatting_app.network.interfaces.BrailleTransmitter
 import com.example.chatting_app.network.interfaces.CommunicationChannel
 
 /**
- * WiFi 점자 전송기 - GATT 호환
+ * 표준 점자 전송기 - GATT 호환 프로토콜 사용
+ * 모든 통신 방식(WiFi, BLE, WebSocket 등)에서 사용 가능
  */
-class WifiBrailleTransmitter(private val channel: CommunicationChannel) : BrailleTransmitter {
+class StandardBrailleTransmitter(private val channel: CommunicationChannel) : BrailleTransmitter {
     
-    private val TAG = "WifiBrailleTransmitter"
+    private val TAG = "StandardBrailleTransmitter"
     
     /**
      * 점 터치 전송
@@ -155,3 +156,4 @@ class WifiBrailleTransmitter(private val channel: CommunicationChannel) : Braill
         return dots.map { if (it) "1" else "0" }.joinToString("")
     }
 }
+

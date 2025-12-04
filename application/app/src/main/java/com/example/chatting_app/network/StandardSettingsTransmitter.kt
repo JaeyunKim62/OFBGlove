@@ -5,11 +5,12 @@ import com.example.chatting_app.network.interfaces.SettingsTransmitter
 import com.example.chatting_app.network.interfaces.CommunicationChannel
 
 /**
- * WiFi 설정 전송기 - GATT 호환
+ * 표준 설정 전송기 - GATT 호환 프로토콜 사용
+ * 모든 통신 방식(WiFi, BLE, WebSocket 등)에서 사용 가능
  */
-class WifiSettingsTransmitter(private val channel: CommunicationChannel) : SettingsTransmitter {
+class StandardSettingsTransmitter(private val channel: CommunicationChannel) : SettingsTransmitter {
     
-    private val TAG = "WifiSettingsTransmitter"
+    private val TAG = "StandardSettingsTransmitter"
     
     /**
      * 설정 전송
@@ -81,3 +82,4 @@ enum class BrailleMode(val value: Byte) {
     MANUAL(1),    // 수동 모드
     REPEAT(2)     // 다시듣기 모드
 }
+

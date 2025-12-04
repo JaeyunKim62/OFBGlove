@@ -5,11 +5,12 @@ import com.example.chatting_app.network.interfaces.TextTransmitter
 import com.example.chatting_app.network.interfaces.CommunicationChannel
 
 /**
- * WiFi 텍스트 메시지 전송기 - GATT 호환
+ * 표준 텍스트 메시지 전송기 - GATT 호환 프로토콜 사용
+ * 모든 통신 방식(WiFi, BLE, WebSocket 등)에서 사용 가능
  */
-class WifiTextTransmitter(private val channel: CommunicationChannel) : TextTransmitter {
+class StandardTextTransmitter(private val channel: CommunicationChannel) : TextTransmitter {
     
-    private val TAG = "WifiTextTransmitter"
+    private val TAG = "StandardTextTransmitter"
     
     /**
      * 텍스트 메시지 전송 (점자로 변환된 텍스트)
@@ -37,7 +38,7 @@ class WifiTextTransmitter(private val channel: CommunicationChannel) : TextTrans
         System.arraycopy(brailleBytes, 0, data, offset, brailleBytes.size)
         
         // val packet = WifiMessageProtocol.serializeMessage(MessageType.TEXT_MESSAGE, data)
-        // wifiClient.send(packet)
+        // channel.send(packet)
         
         Log.d(TAG, "Sent text message: text='$text', braille='$braille'")
     }
@@ -66,10 +67,11 @@ class WifiTextTransmitter(private val channel: CommunicationChannel) : TextTrans
             
             sendTextMessage(textChunk, brailleChunk)
             
-            // 청크 간 지연 (ESP32 처리 시간 확보)
+            // 청크 간 지연 (디바이스 처리 시간 확보)
             Thread.sleep(100)
         }
         
         Log.d(TAG, "Sent long text message in $maxChunks chunks")
     }
 }
+

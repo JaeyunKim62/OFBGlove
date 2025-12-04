@@ -5,11 +5,12 @@ import com.example.chatting_app.network.interfaces.ConfigTransmitter
 import com.example.chatting_app.network.interfaces.CommunicationChannel
 
 /**
- * WiFi 설정 전송기 - MSG_CONFIG_SET (0x0A) 사용
+ * 표준 하드웨어 구성 전송기 - MSG_CONFIG_SET (0x0A) 사용
+ * 모든 통신 방식(WiFi, BLE, WebSocket 등)에서 사용 가능
  */
-class WifiConfigTransmitter(private val channel: CommunicationChannel) : ConfigTransmitter {
+class StandardConfigTransmitter(private val channel: CommunicationChannel) : ConfigTransmitter {
     
-    private val TAG = "WifiConfigTransmitter"
+    private val TAG = "StandardConfigTransmitter"
     
     /**
      * waveformId 설정 전송
