@@ -111,6 +111,11 @@ logs/
 *.swo
 *~
 
+# Kotlin compiler temporary files
+*.salive
+*.kotlin_module
+.kotlin/
+
 # NDK
 obj/
 .externalNativeBuild/
