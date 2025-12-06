@@ -9,6 +9,7 @@ import { CommunicationService } from './services/interfaces/CommunicationService
 import { DataCollector } from './utils/dataCollector';
 import { BraillePattern, BrailleData, BrailleDot } from './types/braille';
 import { resizeImage, base64ToArrayBuffer } from './utils/imageUtils';
+import { characterToBraillePattern, patternToByte, sendTextAsBrailleSequence } from './utils/brailleConverter';
 import './App.css';
 
 interface LogEntry {
@@ -650,26 +651,6 @@ function App() {
       "101111": "Y", "101011": "Z", "000000": " "
     };
     return brailleMap[binary] || "?";
-  };
-
-  // 문자를 점자 패턴으로 변환하는 함수 (역매핑)
-  const characterToBraillePattern = (char: string): BrailleDot[] => {
-    const charUpper = char.toUpperCase();
-    const brailleMap: { [key: string]: string } = {
-      "A": "100000", "B": "110000", "C": "100100", "D": "100110",
-      "E": "100010", "F": "110100", "G": "110110", "H": "110010",
-      "I": "010100", "J": "010110", "K": "101000", "L": "111000",
-      "M": "101100", "N": "101110", "O": "101010", "P": "111100",
-      "Q": "111110", "R": "111010", "S": "011100", "T": "011110",
-      "U": "101001", "V": "111001", "W": "010111", "X": "101101",
-      "Y": "101111", "Z": "101011", " ": "000000"
-    };
-    
-    const binary = brailleMap[charUpper] || "000000";
-    return binary.split('').map((bit, index) => ({
-      id: index + 1,
-      isActive: bit === '1'
-    }));
   };
 
   // 점바이점 출력: 점을 하나씩 순차적으로 표시하는 함수
@@ -1540,17 +1521,6 @@ function App() {
       setWebInputBuffer([]);
     }
   }, [webInputBuffer]); // webInputBuffer가 변경될 때만 실행
-
-  // 점자 패턴을 바이트로 변환 (6개 점 → 1바이트)
-  const patternToByte = (pattern: BrailleDot[]): number => {
-    let byte = 0;
-    for (let i = 0; i < 6; i++) {
-      if (pattern[i]?.isActive) {
-        byte |= (1 << i); // Bit 0: 점 1, Bit 1: 점 2, ..., Bit 5: 점 6
-      }
-    }
-    return byte;
-  };
 
   // TCP 서버로 점자 패턴 전송 (DOT_PATTERN)
   const sendDotPatternToTCP = (pattern: BrailleDot[]) => {
