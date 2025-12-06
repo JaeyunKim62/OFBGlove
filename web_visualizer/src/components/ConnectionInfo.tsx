@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { NetworkUtils } from '../utils/networkUtils';
-import { WebSocketService, ClientInfo } from '../services/WebSocketService';
+import { ClientInfo } from '../services/WebSocketService';
+import { CommunicationService } from '../services/interfaces/CommunicationService';
 import './ConnectionInfo.css';
 
 interface ConnectionInfoProps {
   onIPDetected?: (ip: string) => void;
-  wsService?: WebSocketService | null; // App.tsx에서 전달받은 WebSocket 서비스
+  wsService?: CommunicationService | null; // App.tsx에서 전달받은 WebSocket 서비스
 }
 
 export const ConnectionInfo: React.FC<ConnectionInfoProps> = ({ onIPDetected, wsService }) => {
@@ -33,7 +34,7 @@ export const ConnectionInfo: React.FC<ConnectionInfoProps> = ({ onIPDetected, ws
       };
       
       // 클라이언트 목록과 차단된 클라이언트 목록 요청
-      wsService.requestClients();
+      wsService.requestClients?.();
       wsService.send({
         type: 'get_blocked_clients'
       });
@@ -177,7 +178,7 @@ export const ConnectionInfo: React.FC<ConnectionInfoProps> = ({ onIPDetected, ws
               )}
             </div>
             <button 
-              onClick={() => wsService?.requestClients()} 
+              onClick={() => wsService?.requestClients?.()} 
               className="refresh-clients-btn"
               title="클라이언트 목록 새로고침"
             >

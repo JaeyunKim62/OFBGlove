@@ -5,6 +5,7 @@ import { ConnectionInfo } from './components/ConnectionInfo';
 import { ServerLog } from './components/ServerLog';
 import { HandwritingCanvas } from './components/HandwritingCanvas';
 import { WebSocketService } from './services/WebSocketService';
+import { CommunicationService } from './services/interfaces/CommunicationService';
 import { DataCollector } from './utils/dataCollector';
 import { BraillePattern, BrailleData, BrailleDot } from './types/braille';
 import { resizeImage, base64ToArrayBuffer } from './utils/imageUtils';
@@ -63,8 +64,16 @@ function App() {
   const [glovePosY, setGlovePosY] = useState(50); // % (상단 기준)
   const [gloveScale, setGloveScale] = useState(90); // % (더 크게 표시)
   const [gloveOpacity, setGloveOpacity] = useState(1); // 0~1
+  const [gloveRotation, setGloveRotation] = useState(0); // 도 (회전 각도)
+  const [showGloveControls, setShowGloveControls] = useState(false); // 장갑 컨트롤 패널 표시 여부
+  const [showDotsControls, setShowDotsControls] = useState(false); // 점자 셀 컨트롤 패널 표시 여부
+  const [dotsPosX, setDotsPosX] = useState(0); // 점자 셀 X 위치 (px)
+  const [dotsPosY, setDotsPosY] = useState(0); // 점자 셀 Y 위치 (px)
+  const [dotsScale, setDotsScale] = useState(1); // 점자 셀 크기 (배율)
+  const [dotsRotation, setDotsRotation] = useState(0); // 점자 셀 회전 (도)
+  const [useDotByDot, setUseDotByDot] = useState(true); // 점바이점 출력 모드 (true: 점바이점, false: 일반)
   
-  const wsServiceRef = useRef<WebSocketService | null>(null);
+  const wsServiceRef = useRef<CommunicationService | null>(null);
   const dataCollectorRef = useRef<DataCollector | null>(null);
   const displayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const sequenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -641,6 +650,148 @@ function App() {
       "101111": "Y", "101011": "Z", "000000": " "
     };
     return brailleMap[binary] || "?";
+  };
+
+  // 문자를 점자 패턴으로 변환하는 함수 (역매핑)
+  const characterToBraillePattern = (char: string): BrailleDot[] => {
+    const charUpper = char.toUpperCase();
+    const brailleMap: { [key: string]: string } = {
+      "A": "100000", "B": "110000", "C": "100100", "D": "100110",
+      "E": "100010", "F": "110100", "G": "110110", "H": "110010",
+      "I": "010100", "J": "010110", "K": "101000", "L": "111000",
+      "M": "101100", "N": "101110", "O": "101010", "P": "111100",
+      "Q": "111110", "R": "111010", "S": "011100", "T": "011110",
+      "U": "101001", "V": "111001", "W": "010111", "X": "101101",
+      "Y": "101111", "Z": "101011", " ": "000000"
+    };
+    
+    const binary = brailleMap[charUpper] || "000000";
+    return binary.split('').map((bit, index) => ({
+      id: index + 1,
+      isActive: bit === '1'
+    }));
+  };
+
+  // 점바이점 출력: 점을 하나씩 순차적으로 표시하는 함수
+  const displayDotsOneByOne = (pattern: BrailleDot[], char: string, onComplete?: () => void) => {
+    const activeDots = pattern.filter(d => d.isActive).map(d => d.id);
+    let dotIndex = 0;
+    const dotInterval = 200; // 각 점 표시 간격 (0.2초)
+    
+    const displayNextDot = () => {
+      if (dotIndex >= activeDots.length) {
+        // 모든 점 표시 완료
+        if (onComplete) {
+          setTimeout(onComplete, dotInterval);
+        }
+        return;
+      }
+      
+      // 현재까지의 점들을 활성화
+      const currentDots = pattern.map(dot => ({
+        ...dot,
+        isActive: activeDots.slice(0, dotIndex + 1).includes(dot.id)
+      }));
+      
+      const braillePattern: BraillePattern = {
+        dots: currentDots,
+        timestamp: Date.now(),
+        source: 'demo',
+        character: char,
+        binary: currentDots.map(d => d.isActive ? '1' : '0').join('')
+      };
+      
+      setBraillePattern(braillePattern);
+      dotIndex++;
+      
+      // 다음 점 표시
+      if (dotIndex < activeDots.length) {
+        displayTimeoutRef.current = setTimeout(displayNextDot, dotInterval);
+      } else {
+        // 마지막 점 표시 후 완료 콜백 호출
+        displayTimeoutRef.current = setTimeout(() => {
+          if (onComplete) onComplete();
+        }, dotInterval);
+      }
+    };
+    
+    // 첫 번째 점 표시 시작
+    displayNextDot();
+  };
+
+  // 텍스트를 점자 패턴으로 변환하여 순차적으로 표시하는 함수
+  const displayTextAsBraille = (text: string) => {
+    if (!text || text.length === 0) return;
+    
+    // 기존 타이머 클리어
+    if (displayTimeoutRef.current) {
+      clearTimeout(displayTimeoutRef.current);
+      displayTimeoutRef.current = null;
+    }
+    
+    const characters = text.toUpperCase().split('');
+    let currentIndex = 0;
+    const characterInterval = 1500; // 각 문자 표시 간격 (1.5초)
+    
+    const displayNextCharacter = () => {
+      if (currentIndex >= characters.length) {
+        // 모든 문자 표시 완료 후 마지막에 꺼지기
+        setTimeout(() => {
+          setBraillePattern(null);
+          addLog('info', `테스트 완료: "${text}" 점자 패턴 표시 완료 및 숨김`);
+        }, characterInterval);
+        return;
+      }
+      
+      const char = characters[currentIndex];
+      const pattern = characterToBraillePattern(char);
+      
+      if (useDotByDot) {
+        // 점바이점으로 표시
+        displayDotsOneByOne(pattern, char, () => {
+          currentIndex++;
+          
+          // 다음 문자 표시
+          if (currentIndex < characters.length) {
+            displayTimeoutRef.current = setTimeout(displayNextCharacter, characterInterval);
+          } else {
+            // 마지막 문자 표시 후 꺼지기
+            displayTimeoutRef.current = setTimeout(() => {
+              setBraillePattern(null);
+              addLog('info', `테스트 완료: "${text}" 점자 패턴 표시 완료 및 숨김`);
+            }, characterInterval);
+          }
+        });
+      } else {
+        // 일반 출력: 전체 패턴을 한 번에 표시
+        const braillePattern: BraillePattern = {
+          dots: pattern,
+          timestamp: Date.now(),
+          source: 'demo',
+          character: char,
+          binary: pattern.map(d => d.isActive ? '1' : '0').join('')
+        };
+        
+        setBraillePattern(braillePattern);
+        addLog('info', `테스트: "${char}" 점자 패턴 표시 (${currentIndex + 1}/${characters.length})`);
+        
+        currentIndex++;
+        
+        // 다음 문자 표시
+        if (currentIndex < characters.length) {
+          displayTimeoutRef.current = setTimeout(displayNextCharacter, characterInterval);
+        } else {
+          // 마지막 문자 표시 후 꺼지기
+          displayTimeoutRef.current = setTimeout(() => {
+            setBraillePattern(null);
+            addLog('info', `테스트 완료: "${text}" 점자 패턴 표시 완료 및 숨김`);
+          }, characterInterval);
+        }
+      }
+    };
+    
+    // 첫 번째 문자 표시 시작
+    displayNextCharacter();
   };
 
   // 000000 패턴 객체 생성 함수 (구분자용)
@@ -1427,6 +1578,85 @@ function App() {
       <header className="App-header">
         <h1>OFBGlove 점자 시연</h1>
         <div className="header-controls">
+          <button
+            onClick={() => setShowGloveControls(!showGloveControls)}
+            style={{
+              padding: '8px 16px',
+              background: showGloveControls ? '#0056b3' : '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '0.9rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 2px 4px rgba(0, 123, 255, 0.2)'
+            }}
+          >
+            {showGloveControls ? '▼' : '▶'} 장갑 조정
+          </button>
+          <button
+            onClick={() => setShowDotsControls(!showDotsControls)}
+            style={{
+              padding: '8px 16px',
+              background: showDotsControls ? '#28a745' : '#20c997',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '0.9rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 2px 4px rgba(40, 167, 69, 0.2)'
+            }}
+          >
+            {showDotsControls ? '▼' : '▶'} 점자 셀 조정
+          </button>
+          <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              onClick={() => setUseDotByDot(!useDotByDot)}
+              style={{
+                padding: '6px 12px',
+                background: useDotByDot ? '#ff9800' : '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+                whiteSpace: 'nowrap'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = useDotByDot ? '#f57c00' : '#5a6268'}
+              onMouseOut={(e) => e.currentTarget.style.background = useDotByDot ? '#ff9800' : '#6c757d'}
+              title={useDotByDot ? '점바이점 출력 모드 (클릭하여 일반 출력으로 변경)' : '일반 출력 모드 (클릭하여 점바이점 출력으로 변경)'}
+            >
+              {useDotByDot ? '⚫ 점바이점' : '⚪ 일반'}
+            </button>
+            {['A', 'B', 'C', 'HELLO', 'TEST'].map((text) => (
+              <button
+                key={text}
+                onClick={() => displayTextAsBraille(text)}
+                style={{
+                  padding: '6px 12px',
+                  background: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.background = '#5a6268'}
+                onMouseOut={(e) => e.currentTarget.style.background = '#6c757d'}
+              >
+                {text}
+              </button>
+            ))}
+          </div>
           <div className="connection-status">
             <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
               {isConnected ? '연결됨' : '연결 끊김'}
@@ -1439,6 +1669,172 @@ function App() {
           </div>
         </div>
       </header>
+      
+      {/* 장갑 배경 조정 컨트롤 - 헤더 아래 고정 위치 */}
+      {showGloveControls && (
+        <div style={{
+          position: 'fixed',
+          top: '80px',
+          right: '20px',
+          width: '350px',
+          padding: '15px',
+          background: 'white',
+          borderRadius: '8px',
+          border: '2px solid #007bff',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          zIndex: 1000,
+          maxHeight: 'calc(100vh - 100px)',
+          overflowY: 'auto'
+        }}>
+          <h4 style={{ margin: '0 0 15px 0', fontSize: '1.1rem', color: '#333', fontWeight: '700' }}>
+            장갑 이미지 조정
+          </h4>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#666', fontWeight: '600' }}>
+                X 위치: {glovePosX}%
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={glovePosX}
+                onChange={(e) => setGlovePosX(Number(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#666', fontWeight: '600' }}>
+                Y 위치: {glovePosY}%
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={glovePosY}
+                onChange={(e) => setGlovePosY(Number(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#666', fontWeight: '600' }}>
+                크기: {gloveScale}%
+              </label>
+              <input
+                type="range"
+                min="10"
+                max="200"
+                value={gloveScale}
+                onChange={(e) => setGloveScale(Number(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#666', fontWeight: '600' }}>
+                투명도: {Math.round(gloveOpacity * 100)}%
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={gloveOpacity * 100}
+                onChange={(e) => setGloveOpacity(Number(e.target.value) / 100)}
+                style={{ width: '100%', cursor: 'pointer' }}
+              />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#666', fontWeight: '600' }}>
+                회전: {gloveRotation}°
+              </label>
+              <input
+                type="range"
+                min="-180"
+                max="180"
+                value={gloveRotation}
+                onChange={(e) => setGloveRotation(Number(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer' }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 점자 셀 조정 컨트롤 - 헤더 아래 고정 위치 */}
+      {showDotsControls && (
+        <div style={{
+          position: 'fixed',
+          top: '80px',
+          right: '20px',
+          width: '350px',
+          padding: '15px',
+          background: 'white',
+          borderRadius: '8px',
+          border: '2px solid #20c997',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          zIndex: 1000,
+          maxHeight: 'calc(100vh - 100px)',
+          overflowY: 'auto'
+        }}>
+          <h4 style={{ margin: '0 0 15px 0', fontSize: '1.1rem', color: '#333', fontWeight: '700' }}>
+            점자 셀 조정
+          </h4>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#666', fontWeight: '600' }}>
+                X 위치: {dotsPosX}px
+              </label>
+              <input
+                type="range"
+                min="-300"
+                max="300"
+                value={dotsPosX}
+                onChange={(e) => setDotsPosX(Number(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#666', fontWeight: '600' }}>
+                Y 위치: {dotsPosY}px
+              </label>
+              <input
+                type="range"
+                min="-300"
+                max="300"
+                value={dotsPosY}
+                onChange={(e) => setDotsPosY(Number(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#666', fontWeight: '600' }}>
+                크기: {dotsScale.toFixed(2)}x
+              </label>
+              <input
+                type="range"
+                min="0.5"
+                max="2"
+                step="0.1"
+                value={dotsScale}
+                onChange={(e) => setDotsScale(Number(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#666', fontWeight: '600' }}>
+                회전: {dotsRotation}°
+              </label>
+              <input
+                type="range"
+                min="-180"
+                max="180"
+                value={dotsRotation}
+                onChange={(e) => setDotsRotation(Number(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer' }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="App-main">
         <div className="braille-panel">
@@ -1626,7 +2022,8 @@ function App() {
               onNextWord={navigateToNextWord}
               onSendDotPattern={sendDotPatternToTCP}  // 추가
               isEnabled={isInputMode}
-              gloveBg={{ posX: glovePosX, posY: glovePosY, scale: gloveScale, opacity: gloveOpacity }}
+              gloveBg={{ posX: glovePosX, posY: glovePosY, scale: gloveScale, opacity: gloveOpacity, rotation: gloveRotation }}
+              dotsTransform={{ posX: dotsPosX, posY: dotsPosY, scale: dotsScale, rotation: dotsRotation }}
               voicePattern={(() => {
                 const isVoiceSource = braillePattern && (braillePattern.source === 'esp32' || braillePattern.source === 'demo');
                 if (isVoiceSource && braillePattern) {
@@ -1637,7 +2034,6 @@ function App() {
               isWordPlaying={isPlayingWord}
               hasWebInputBuffer={webInputBuffer.length > 0}
             />
-            {/* 배경 조정 컨트롤은 데모에서 숨김 */}
           </div>
         )}
       </main>

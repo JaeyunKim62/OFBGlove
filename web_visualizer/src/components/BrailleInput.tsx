@@ -10,7 +10,8 @@ interface BrailleInputProps {
   onNextWord?: () => void; // 다음 단어로 이동 (단어 재생 중일 때)
   onSendDotPattern?: (pattern: BrailleDot[]) => void; // 점자 패턴을 TCP 서버로 전송
   isEnabled?: boolean;
-  gloveBg?: { posX: number; posY: number; scale: number; opacity: number };
+  gloveBg?: { posX: number; posY: number; scale: number; opacity: number; rotation?: number };
+  dotsTransform?: { posX: number; posY: number; scale: number; rotation: number }; // 점자 셀 위치/크기/회전
   voicePattern?: BraillePattern | null; // 음성 입력 패턴 (esp32/demo 소스)
   isWordPlaying?: boolean; // 단어 재생 중인지 여부
   hasWebInputBuffer?: boolean; // 웹 입력 버퍼에 내용이 있는지 여부 (웹 입력 우선)
@@ -25,6 +26,7 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
   onSendDotPattern,  // 추가
   isEnabled = true,
   gloveBg,
+  dotsTransform,
   voicePattern,
   isWordPlaying = false,
   hasWebInputBuffer = false
@@ -205,7 +207,8 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
           backgroundImage: 'url(/glove.png)',
           backgroundPosition: `${gloveBg?.posX ?? 0}% ${gloveBg?.posY ?? 50}%`,
           backgroundSize: `${gloveBg?.scale ?? 60}% auto`,
-          opacity: gloveBg?.opacity ?? 0.35
+          opacity: gloveBg?.opacity ?? 0.35,
+          transform: `rotate(${gloveBg?.rotation ?? 0}deg)`
         }}
       />
       <div className="braille-input-header">
@@ -219,7 +222,13 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
         </div>
       </div>
 
-      <div className="braille-input-grid">
+      <div 
+        className="braille-input-grid"
+        style={{
+          transform: `translate(${dotsTransform?.posX ?? 0}px, ${dotsTransform?.posY ?? 0}px) scale(${dotsTransform?.scale ?? 1}) rotate(${dotsTransform?.rotation ?? 0}deg)`,
+          transformOrigin: 'center center',
+        }}
+      >
         {cellPositions.map((pos) => {
           const dot = currentPattern.find(d => d.id === pos.id);
           const isActive = dot?.isActive || false;
@@ -240,10 +249,6 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
             <div
               key={pos.id}
               className={`braille-input-dot ${isActive ? 'active' : 'inactive'} ${showVoice ? 'voice-active' : ''} clickable`}
-              style={{
-                gridRow: pos.row,
-                gridColumn: pos.col,
-              }}
               onClick={() => handleDotClick(pos.id)}
               data-dot-id={pos.id}
               data-voice-active={isVoiceActive}
