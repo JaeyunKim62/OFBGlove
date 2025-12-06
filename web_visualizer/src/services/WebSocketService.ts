@@ -103,13 +103,30 @@ export class WebSocketService implements CommunicationService {
 
   private handleMessage(data: any) {
     // 디버깅: 모든 메시지 타입 로그
-    if (data.type === 'word_separator' || data.type === 'sentence_separator' || data.type === 'braille_pattern') {
+    if (data.type === 'word_separator' || data.type === 'sentence_separator' || data.type === 'braille_pattern' || data.type === 'braille_sequence') {
       console.log(`🔍 WebSocket 메시지 수신: ${data.type}`, data);
     }
     
     switch (data.type) {
       case 'braille_pattern':
         this.handleBraillePattern(data as BraillePatternMessage);
+        break;
+      case 'braille_sequence':
+        console.log('📨 braille_sequence 메시지 처리 시작:', data.patternCount, '개 패턴');
+        if (data.patterns && Array.isArray(data.patterns)) {
+          data.patterns.forEach((patternData: any) => {
+            if (patternData.dots) {
+              this.handleBraillePattern({
+                type: 'braille_pattern',
+                pattern: patternData.dots,
+                character: patternData.character,
+                binary: patternData.binary,
+                timestamp: patternData.timestamp || Date.now(),
+                source: 'esp32'
+              } as BraillePatternMessage);
+            }
+          });
+        }
         break;
       case 'connected':
         this.onConnected?.(data as ConnectedMessage);

@@ -72,12 +72,19 @@ class MessageBridge {
           const count = data[0];
           const patterns = [];
           for (let i = 0; i < count && i < data.length - 1; i++) {
-            patterns.push(data[1 + i]);
+            const byteValue = data[1 + i];
+            // 숫자를 dots 배열로 변환
+            const dots = this.parseBraillePattern(byteValue);
+            patterns.push({
+              dots: dots,
+              byte: byteValue,
+              timestamp: Date.now()
+            });
           }
           return {
             type: 'braille_sequence',
             patterns: patterns,
-            count: count,
+            patternCount: count,  // count → patternCount (클라이언트와 일관성)
             timestamp: Date.now()
           };
         }
