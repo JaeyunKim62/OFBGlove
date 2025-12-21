@@ -198,8 +198,15 @@ web_visualizer/
 │   ├── services/
 │   │   └── WebSocketService.ts    # WebSocket 통신 서비스
 │   ├── server/
-│   │   ├── brailleServer.js       # 통합 서버 (TCP + WebSocket)
-│   │   └── tcpServer.js           # TCP 서버 구현
+│   │   ├── BrailleServerRefactored.js  # 통합 서버 (TCP + WebSocket, 리팩토링 버전)
+│   │   ├── brailleServer.js           # 레거시 서버 (참고용)
+│   │   ├── tcpServer.js               # TCP 서버 구현
+│   │   ├── MessageBridge.js           # 프로토콜 브리지 (TCP ↔ WebSocket 변환)
+│   │   ├── handlers/
+│   │   │   ├── TcpProtocolHandler.js      # TCP 프로토콜 핸들러
+│   │   │   └── WebSocketProtocolHandler.js # WebSocket 프로토콜 핸들러
+│   │   └── interfaces/
+│   │       └── ProtocolHandler.js         # 프로토콜 핸들러 인터페이스
 │   ├── types/
 │   │   ├── braille.ts             # 점자 타입 정의
 │   │   └── websocket.ts           # WebSocket 타입 정의
