@@ -5,6 +5,7 @@
 ## 개요
 
 **OFBGlove**는 시청각장애인(Deafblind)을 위한 혁신적인 소통 보조 시스템입니다. 음성과 환경 소리를 실시간 6점 점자 패턴으로 변환하여 촉각 피드백을 제공하며, 양방향 통신을 통해 독립적인 의사소통을 가능하게 합니다.
+[OFBGlove 시연영상](https://drive.google.com/file/d/1O7CegOOHVPnN_pSAwsKbRt6RZv7Kbkqp/view?usp=sharing)
 
 ### 핵심 개념
 
