@@ -263,7 +263,7 @@ export const BrailleInput: React.FC<BrailleInputProps> = ({
 
       <div className="braille-input-controls">
         <div className="input-controls">
-          <button onClick={handleNextClick} className="control-btn confirm-btn">다음</button>
+          {/* <button onClick={handleNextClick} className="control-btn confirm-btn">다음</button> */}
         </div>
       </div>
 

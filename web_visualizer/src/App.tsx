@@ -1604,7 +1604,7 @@ function App() {
             >
               {useDotByDot ? '⚫ 점바이점' : '⚪ 일반'}
             </button>
-            {['A', 'B', 'C', 'HELLO', 'TEST'].map((text) => (
+            {['A', 'B', 'C', 'HELLO', 'how are you', 'good', '. . . '].map((text) => (
               <button
                 key={text}
                 onClick={() => displayTextAsBraille(text)}
